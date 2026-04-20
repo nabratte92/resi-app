@@ -78,7 +78,7 @@ if st.button("🚨 CARGAR REPORTE", use_container_width=True, type="primary"):
 # 3. VIDEO EXPLICATIVO
 st.divider()
 with st.expander("📖 ¿Cómo funciona ReSI? Ver Tutorial"):
-    st.video("tutorial_resi.mp4") # Asegurate de subirlo a GitHub con este nombre
+    st.info("🚧 El video tutorial estará disponible pronto.")
 
 # 4. MAPA INTERACTIVO
 st.subheader("📍 Mapa de Realidad Distrital")
