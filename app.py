@@ -11,9 +11,9 @@ import json
 # --- 1. CONFIGURACIÓN ---
 SPREADSHEET_ID = '1fa8cD0HVD0lzoc5aWJzYSFuLJRpKwbsp3azF82hLReo'
 
-st.set_page_config(page_title="ReSI - San Isidro", layout="centered")
+st.set_page_config(page_title="ReSI - Realidad San Isidro", layout="centered")
 
-# --- 2. ESTILOS CSS (BOTÓN VERDE Y DISEÑO) ---
+# --- 2. ESTILOS CSS ---
 st.markdown("""
     <style>
     div.stButton > button:first-child {
@@ -26,21 +26,15 @@ st.markdown("""
         border-radius: 10px;
         border: none;
     }
-    div.stButton > button:hover {
-        background-color: #218838 !important;
-    }
     header {visibility: hidden;}
     footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
-# Inicializar estados de sesión para coordenadas
-if 'lat_sel' not in st.session_state:
-    st.session_state.lat_sel = -34.4746 # Centro de San Isidro por defecto
-if 'lon_sel' not in st.session_state:
-    st.session_state.lon_sel = -58.5132
-if 'mostrar_form' not in st.session_state:
-    st.session_state.mostrar_form = False
+# Estados de sesión
+if 'lat_sel' not in st.session_state: st.session_state.lat_sel = -34.4746
+if 'lon_sel' not in st.session_state: st.session_state.lon_sel = -58.5132
+if 'mostrar_form' not in st.session_state: st.session_state.mostrar_form = False
 
 # --- 3. ENCABEZADO ---
 try:
@@ -52,138 +46,88 @@ except:
 if st.button("🚨 INICIAR REPORTE"):
     st.session_state.mostrar_form = True
 
-# --- 5. LÓGICA DEL FORMULARIO CON MAPA INTERACTIVO ---
+# --- 5. FORMULARIO DE REPORTE ---
 if st.session_state.mostrar_form:
-    st.write("### 📍 Paso 1: Tocá el mapa para ubicar el reporte")
+    st.write("### 📍 Ubicá el reporte en el mapa")
+    m_sel = folium.Map(location=[st.session_state.lat_sel, st.session_state.lon_sel], zoom_start=15)
+    folium.Marker([st.session_state.lat_sel, st.session_state.lon_sel], icon=folium.Icon(color='red')).add_to(m_sel)
     
-    # Mapa para capturar el click
-    m_selector = folium.Map(location=[st.session_state.lat_sel, st.session_state.lon_sel], zoom_start=15)
-    # Mostramos un marcador temporal donde el usuario hizo click
-    folium.Marker(
-        [st.session_state.lat_sel, st.session_state.lon_sel], 
-        tooltip="Punto del reporte",
-        icon=folium.Icon(color='red', icon='info-sign')
-    ).add_to(m_selector)
-    
-    # Capturamos el evento de click
-    output = st_folium(m_selector, width="100%", height=300, key="selector_map")
-    
-    if output and output.get("last_clicked"):
-        st.session_state.lat_sel = output["last_clicked"]["lat"]
-        st.session_state.lon_sel = output["last_clicked"]["lng"]
+    out = st_folium(m_sel, width="100%", height=300, key="selector")
+    if out and out.get("last_clicked"):
+        st.session_state.lat_sel = out["last_clicked"]["lat"]
+        st.session_state.lon_sel = out["last_clicked"]["lng"]
         st.rerun()
 
     with st.form("form_reporte", clear_on_submit=True):
-        st.write("### 📝 Paso 2: Completá los datos")
-        st.info(f"Ubicación seleccionada: {st.session_state.lat_sel:.5f}, {st.session_state.lon_sel:.5f}")
-        
         nombre = st.text_input("Nombre (Obligatorio)")
-        email = st.text_input("Email (Opcional)")
-        tel = st.text_input("Teléfono (Opcional)")
         tag = st.selectbox("Categoría", ["Bache", "Vereda rota", "Luminaria", "Basura", "Inseguridad", "Otro"])
-        descripcion = st.text_area("Descripción de la situación")
-        foto = st.file_uploader("Subir Foto (Obligatorio)", type=["jpg", "png", "jpeg"])
+        descripcion = st.text_area("Descripción")
+        foto = st.file_uploader("Subir Foto", type=["jpg", "png", "jpeg"])
         
         if st.form_submit_button("Enviar Reporte"):
             if not foto or not nombre:
-                st.error("Por favor, ingresá tu nombre y subí una foto.")
+                st.error("Completá nombre y foto.")
             else:
                 try:
-                    with st.spinner("Procesando reporte..."):
-                        # A. Subir a ImgBB
-                        img_key = st.secrets["IMGBB_API_KEY"]
-                        res = requests.post(f"https://api.imgbb.com/1/upload?key={img_key}", files={"image": foto.getvalue()})
+                    with st.spinner("Enviando..."):
+                        # Foto a ImgBB
+                        res = requests.post(f"https://api.imgbb.com/1/upload?key={st.secrets['IMGBB_API_KEY']}", files={"image": foto.getvalue()})
                         url_foto = res.json()["data"]["url"]
 
-                        # B. Conectar a Google Sheets
-                        scopes = ['https://www.googleapis.com/auth/spreadsheets']
-                        json_creds = json.loads(st.secrets["GCP_CREDS"])
-                        creds = Credentials.from_service_account_info(json_creds, scopes=scopes)
-                        client = gspread.authorize(creds)
-                        sheet = client.open_by_key(SPREADSHEET_ID).sheet1
-                        
-                        # Guardar los datos exactos del click
-                        nueva_fila = [
-                            datetime.now().strftime("%d/%m/%Y %H:%M"), 
-                            nombre, email if email else "N/A", tel if tel else "N/A", 
-                            tag, descripcion, url_foto, 
-                            st.session_state.lat_sel, st.session_state.lon_sel, "Pendiente"
-                        ]
+                        # Sheets
+                        creds = Credentials.from_service_account_info(json.loads(st.secrets["GCP_CREDS"]), scopes=['https://www.googleapis.com/auth/spreadsheets'])
+                        sheet = gspread.authorize(creds).open_by_key(SPREADSHEET_ID).sheet1
+                        nueva_fila = [datetime.now().strftime("%d/%m/%Y %H:%M"), nombre, "N/A", "N/A", tag, descripcion, url_foto, st.session_state.lat_sel, st.session_state.lon_sel, "Pendiente"]
                         sheet.append_row(nueva_fila)
                         
-                        st.success("✅ ¡Reporte geolocalizado con éxito!")
+                        st.success("✅ ¡Reporte cargado!")
                         st.session_state.mostrar_form = False
                         st.balloons()
                         st.rerun()
-                except Exception as e:
-                    st.error(f"Error al enviar: {e}")
+                except Exception as e: st.error(f"Error: {e}")
 
-# --- 6. MAPA GENERAL DE REPORTES (PÚBLICO) ---
+# --- 6. MAPA PRINCIPAL (PÚBLICO) ---
 st.divider()
 st.write("### 🌎 Mapa de Realidad Distrital")
-st.caption("A continuación se muestran los reportes ciudadanos cargados en el distrito.")
 
-# 1. Crear el mapa base centrado en San Isidro
-m_gral = folium.Map(location=[-34.4746, -58.5132], zoom_start=13, control_scale=True)
+m_publico = folium.Map(location=[-34.4746, -58.5132], zoom_start=13)
 
 try:
-    # 2. Conexión a los datos
-    json_creds_map = json.loads(st.secrets["GCP_CREDS"])
-    creds_map = Credentials.from_service_account_info(json_creds_map, scopes=['https://www.googleapis.com/auth/spreadsheets'])
-    client_map = gspread.authorize(creds_map)
-    
-    # 3. Leer la planilla y convertir a DataFrame de Pandas
-    sheet_puntos = client_map.open_by_key(SPREADSHEET_ID).sheet1.get_all_records()
-    df = pd.DataFrame(sheet_puntos)
-    
-    # 4. Dibujar los pines si hay datos
+    creds_map = Credentials.from_service_account_info(json.loads(st.secrets["GCP_CREDS"]), scopes=['https://www.googleapis.com/auth/spreadsheets'])
+    client = gspread.authorize(creds_map)
+    # Forzamos la lectura limpia de los datos
+    datos = client.open_by_key(SPREADSHEET_ID).sheet1.get_all_records()
+    df = pd.DataFrame(datos)
+
     if not df.empty:
-        for index, r in df.iterrows():
+        for _, r in df.iterrows():
+            # Limpieza y conversión de coordenadas
             try:
-                # Convertimos a número por las dudas de que vengan como texto
-                lat = float(r['lat'])
-                lon = float(r['lon'])
+                lat, lon = float(r['lat']), float(r['lon'])
                 
-                # Crear el ícono verde con la letra R blanca (tu marca registrada)
-                icon_r = folium.DivIcon(html=f"""
-                    <div style="
-                        background-color: #28a745; 
-                        color: white; 
-                        border-radius: 50%; 
-                        width: 32px; 
-                        height: 32px; 
-                        display: flex; 
-                        align-items: center; 
-                        justify-content: center; 
-                        font-weight: bold; 
-                        border: 2px solid white;
-                        box-shadow: 0px 2px 5px rgba(0,0,0,0.4);
-                        font-family: Arial, sans-serif;
-                        font-size: 14px;
-                    ">R</div>
-                """)
+                # Ícono Verde con R
+                icon_html = f"""
+                <div style="background-color: #28a745; color: white; border-radius: 50%; width: 35px; height: 35px; 
+                display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;
+                box-shadow: 0px 2px 4px rgba(0,0,0,0.3); font-family: sans-serif;">R</div>"""
                 
-                # Crear el globo de información (Popup)
-                contenido_popup = f"""
-                    <div style="font-family: sans-serif; font-size: 12px;">
-                        <b style="color: #28a745;">{r['Tag']}</b><br>
-                        <b>Fecha:</b> {r['Fecha']}<br>
-                        <b>Estado:</b> {r['Estado']}<br>
-                        <hr>
-                        <a href="{r['Foto']}" target="_blank">Ver Foto del Reporte</a>
-                    </div>
-                """
+                # Popup con miniatura
+                popup_content = f"""
+                <div style="width: 200px; font-family: sans-serif;">
+                    <h4 style="margin:0; color:#28a745;">{r['Tag']}</h4>
+                    <p style="margin:5px 0; font-size:12px;">{r['Descripcion']}</p>
+                    <img src="{r['Foto']}" style="width:100%; border-radius:5px; margin-top:5px;">
+                    <br><small>Estado: {r['Estado']}</small>
+                </div>"""
                 
                 folium.Marker(
-                    location=[lat, lon],
-                    popup=folium.Popup(contenido_popup, max_width=250),
-                    icon=icon_r
-                ).add_to(m_gral)
-            except (ValueError, KeyError):
-                continue # Si una fila está mal, salta a la siguiente sin trabar el mapa
+                    [lat, lon],
+                    popup=folium.Popup(popup_content, max_width=250),
+                    icon=folium.DivIcon(html=icon_html)
+                ).add_to(m_publico)
+            except: continue
 
 except Exception as e:
-    st.error(f"Error al cargar los marcadores: {e}")
+    st.info("Cargando reportes...")
 
-# 5. Renderizar el mapa final
-st_folium(m_gral, width="100%", height=500, key="map_publico")
+st_folium(m_publico, width="100%", height=500, key="mapa_principal")
