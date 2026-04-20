@@ -8,6 +8,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 import io
 from datetime import datetime
+import json
 
 # --- CONFIGURACIÓN DE APIS Y GOOGLE ---
 # Reemplazá esto con tus IDs reales
