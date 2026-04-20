@@ -28,20 +28,20 @@ st.markdown("""
         font-weight: bold;
         padding: 20px;
         border-radius: 10px;
-        border: none;
     }
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+    header {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. ENCABEZADO (SOLO LOGO) ---
-col_l, col_c, col_r = st.columns([1, 3, 1])
+# --- 3. ENCABEZADO (LOGO) ---
+col_l, col_c, col_r = st.columns([1, 2, 1])
 with col_c:
     try:
         st.image("logo_resi.png", use_container_width=True)
     except:
-        st.subheader("ReSI - Realidad San Isidro")
+        st.header("ReSI - Realidad San Isidro")
 
 # --- 4. BOTÓN DE CARGA ---
 if st.button("🚨 INICIAR REPORTE", type="primary"):
@@ -50,55 +50,68 @@ if st.button("🚨 INICIAR REPORTE", type="primary"):
 # --- 5. LÓGICA DEL FORMULARIO ---
 if st.session_state.get('mostrar_form', False):
     with st.form("form_reporte", clear_on_submit=True):
-        st.write("### Nuevo Reporte")
+        st.write("### Datos del Nuevo Reporte")
         nombre = st.text_input("Nombre")
         email = st.text_input("Email")
         tel = st.text_input("Teléfono")
-        tag = st.selectbox("Categoría", ["Bache", "Vereda rota", "Luminaria", "Basura", "Otro"])
-        descripcion = st.text_area("Descripción/Ubicación")
+        tag = st.selectbox("Categoría", ["Bache", "Vereda rota", "Inseguridad", "Luminaria", "Basura", "Otro"])
+        descripcion = st.text_area("Descripción de la situación")
         foto = st.file_uploader("Subir Foto", type=["jpg", "png", "jpeg"])
         
-        if st.form_submit_button("Enviar Reporte"):
-            if not foto or not nombre:
-                st.error("Por favor completá los datos y subí una foto.")
+        if st.form_submit_button("Enviar Reporte a ReSI"):
+            if not foto or not nombre or not email:
+                st.error("Por favor completá los datos obligatorios y subí una foto.")
             else:
                 try:
-                    with st.spinner("Guardando en la base de datos..."):
-                        # Conexión
-                        scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-                        creds = Credentials.from_service_account_info(json.loads(st.secrets["GCP_CREDS"]), scopes=scope)
-                        drive_service = build('drive', 'v3', credentials=creds)
+                    with st.spinner("Conectando con los servidores de Google..."):
+                        # Definición de permisos
+                        scopes = [
+                            'https://www.googleapis.com/auth/spreadsheets',
+                            'https://www.googleapis.com/auth/drive',
+                            'https://www.googleapis.com/auth/drive.file'
+                        ]
+                        
+                        # Carga de credenciales desde Secrets
+                        json_creds = json.loads(st.secrets["GCP_CREDS"])
+                        creds = Credentials.from_service_account_info(json_creds, scopes=scopes)
+                        
+                        # Construcción de servicios (Bypass de error de API Key)
+                        drive_service = build('drive', 'v3', credentials=creds, static_discovery=False)
                         client = gspread.authorize(creds)
                         
-                        # Subir Foto (SOLO SUBIDA, SIN PERMISOS EXTRA PARA EVITAR ERRORES)
-                        file_metadata = {'name': f"ReSI_{datetime.now().strftime('%Y%m%d')}", 'parents': [FOLDER_ID]}
+                        # 1. Subir Foto
+                        file_metadata = {'name': f"ReSI_{datetime.now().strftime('%Y%m%d_%H%M%S')}", 'parents': [FOLDER_ID]}
                         media = MediaIoBaseUpload(io.BytesIO(foto.getvalue()), mimetype=foto.type)
-                        file = drive_service.files().create(body=file_metadata, media_body=media, fields='webViewLink').execute()
-                        url_foto = file.get('webViewLink')
+                        uploaded_file = drive_service.files().create(body=file_metadata, media_body=media, fields='webViewLink').execute()
+                        url_foto = uploaded_file.get('webViewLink')
 
-                        # Guardar en Sheet
+                        # 2. Guardar en Sheets
                         sheet = client.open_by_key(SPREADSHEET_ID).sheet1
-                        nueva_fila = [datetime.now().strftime("%d/%m/%Y %H:%M"), nombre, email, tel, tag, descripcion, url_foto, -34.4746, -58.5132, "Pendiente"]
+                        nueva_fila = [
+                            datetime.now().strftime("%d/%m/%Y %H:%M"), 
+                            nombre, email, tel, tag, descripcion, url_foto, 
+                            -34.4746, -58.5132, "Pendiente"
+                        ]
                         sheet.append_row(nueva_fila)
                         
-                        st.success("✅ ¡Reporte enviado con éxito!")
+                        st.success("✅ ¡Reporte enviado con éxito! Ya podés verlo en el mapa.")
                         st.session_state.mostrar_form = False
                         st.rerun()
                 except Exception as e:
-                    st.error(f"Error técnico: {e}")
+                    st.error(f"Error de conexión: {e}")
 
-# --- 6. VIDEO (PRÓXIMAMENTE) ---
+# --- 6. VIDEO TUTORIAL ---
 st.divider()
 with st.expander("🎥 Ver Tutorial de uso"):
     st.info("El video tutorial se cargará próximamente.")
 
-# --- 7. MAPA SIEMPRE VISIBLE ---
+# --- 7. MAPA DE SITUACIÓN ---
 st.write("### Mapa de Realidad Distrital")
 m = folium.Map(location=[-34.4746, -58.5132], zoom_start=13)
 
-# Intentar cargar puntos del mapa
 try:
-    creds_map = Credentials.from_service_account_info(json.loads(st.secrets["GCP_CREDS"]), scopes=['https://www.googleapis.com/auth/spreadsheets'])
+    json_creds_map = json.loads(st.secrets["GCP_CREDS"])
+    creds_map = Credentials.from_service_account_info(json_creds_map, scopes=['https://www.googleapis.com/auth/spreadsheets'])
     client_map = gspread.authorize(creds_map)
     data = pd.DataFrame(client_map.open_by_key(SPREADSHEET_ID).sheet1.get_all_records())
     
@@ -109,8 +122,8 @@ try:
                 <div style="background-color: #28a745; color: white; border-radius: 50%; width: 30px; height: 30px; 
                 display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;">R</div>
             """)
-            folium.Marker([r['lat'], r['lon']], popup=r['Tag'], icon=icon_r).add_to(m)
+            folium.Marker([r['lat'], r['lon']], popup=f"{r['Tag']}: {r['Estado']}", icon=icon_r).add_to(m)
 except:
-    pass # Si falla o está vacío, el mapa se muestra igual pero sin pines
+    pass 
 
 st_folium(m, width="100%", height=450)
