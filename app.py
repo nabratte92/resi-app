@@ -13,7 +13,7 @@ import json
 # --- CONFIGURACIÓN DE APIS Y GOOGLE ---
 # Reemplazá esto con tus IDs reales (No borres las comillas simples)
 SPREADSHEET_ID = '1fa8cD0HVD0lzoc5aWJzYSFuLJRpKwbs_p3azF82hLReo'
-FOLDER_ID = '1q8KiQfMgKVr0wPfE1aEDo5I-8-A82D_C'
+FOLDER_ID = '1q8KiQfMgKVr0wPFe1aEDo5I-8-A82D_C'
 ADMIN_PASSWORD = 'resi_admin_2026'
 
 # --- PERSONALIZACIÓN VISUAL (CSS Hack) ---
