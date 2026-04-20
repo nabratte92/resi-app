@@ -108,7 +108,11 @@ if st.query_params.get("form") == "abierto":
                         media = MediaIoBaseUpload(io.BytesIO(foto.getvalue()), mimetype=foto.type)
                         uploaded_file = drive_service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
                         link_foto = uploaded_file.get('webViewLink')
-
+                       # Le damos permiso de escritura a tu mail para que puedas ver y editar la foto
+                       drive_service.permissions().create(
+                       fileId=uploaded_file.get('id'),
+                       body={'type': 'user', 'role': 'writer', 'emailAddress': 'realidadsanisidro@gmail.com'}
+                       ).execute()
                         # 2. Guardar Datos Completos en Google Sheets
                         sheet = client.open_by_key(SPREADSHEET_ID).sheet1
                         fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
