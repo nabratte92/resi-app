@@ -74,6 +74,6 @@ try:
         st_folium(m, width="100%", height=400)
 except Exception:
     st.info("El mapa aparecerá cuando se registre el primer reporte con éxito.")
-        st.subheader("Estadísticas de Gestión")
+    st.subheader("Estadísticas de Gestión")
         # Aquí irían los gráficos semanales/mensuales
         st.write("Próximamente: Gráficos de rendimiento y exportación de datos.")
