@@ -17,7 +17,8 @@ ADMIN_PASSWORD = 'resi_admin_2026' # Podés cambiar tu contraseña acá
 
 # Autenticación
 scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-creds = Credentials.from_service_account_file('creds.json', scopes=scope)
+service_account_info = json.loads(st.secrets["GCP_CREDS"])
+creds = Credentials.from_service_account_info(service_account_info, scopes=scope)
 client = gspread.authorize(creds)
 drive_service = build('drive', 'v3', credentials=creds)
 
