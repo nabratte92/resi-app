@@ -10,189 +10,107 @@ import io
 from datetime import datetime
 import json
 
-# --- CONFIGURACIÓN DE APIS Y GOOGLE ---
-# Reemplazá esto con tus IDs reales (No borres las comillas simples)
+# --- 1. CONFIGURACIÓN (REEMPLAZÁ CON TUS IDs) ---
 SPREADSHEET_ID = '1fa8cD0HVD0lzoc5aWJzYSFuLJRpKwbsp3azF82hLReo'
 FOLDER_ID = '1q8KiQfMgKVr0wPFe1aEDo5I-8-A82D_C'
 ADMIN_PASSWORD = 'resi_admin_2026'
 
-# --- PERSONALIZACIÓN VISUAL (CSS Hack) ---
-# Usamos CSS para centrar el logo y dar un color verde brillante al botón
+# --- 2. DISEÑO Y ESTILOS ---
+st.set_page_config(page_title="ReSI - San Isidro", layout="centered")
+
 st.markdown("""
     <style>
-    /* Estilo para el botón principal (Verde brillante y ancho) */
     div.stButton > button[kind="primary"] {
         background-color: #28a745 !important;
         color: white !important;
-        border-color: #28a745 !important;
-        font-weight: bold;
         width: 100%;
-        font-size: 20px;
-        padding: 15px;
-        display: block;
-        margin: auto;
+        font-size: 22px;
+        font-weight: bold;
+        padding: 20px;
+        border-radius: 10px;
+        border: none;
     }
-    div.stButton > button[kind="primary"]:hover {
-        background-color: #218838 !important; /* Verde más oscuro al pasar el mouse */
-        border-color: #218838 !important;
-    }
-    /* Estilo para ocultar leyendas automáticas de Streamlit */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
-    
     </style>
 """, unsafe_allow_html=True)
 
-# --- INICIO DE LA PÁGINA ---
-
-# 1. ENCABEZADO CON LOGO (Centrado y grande)
-# Usamos columnas laterales vacías para centrar la imagen en la del medio
-col1_logo, col2_logo, col3_logo = st.columns([1, 2, 1])
-with col2_logo:
+# --- 3. ENCABEZADO (SOLO LOGO) ---
+col_l, col_c, col_r = st.columns([1, 3, 1])
+with col_c:
     try:
-        # Asegurate de que el archivo se llame exactamente logo_resi.png en GitHub
         st.image("logo_resi.png", use_container_width=True)
-    except Exception:
-        # Mensaje temporal si no se encuentra el logo
-        st.info("🚧 Logo temporal (Esperando logo_resi.png)")
+    except:
+        st.subheader("ReSI - Realidad San Isidro")
 
-# 2. BOTÓN PRINCIPAL (Prominente, verde, wide)
-# Usamos query params para controlar la apertura del formulario
-if st.button("🚨 INICIAR REPORTE", type="primary", use_container_width=True):
-    st.query_params["form"] = "abierto"
+# --- 4. BOTÓN DE CARGA ---
+if st.button("🚨 INICIAR REPORTE", type="primary"):
+    st.session_state.mostrar_form = True
 
-# --- LÓGICA DEL FORMULARIO DE CARGA ---
-
-# Verificamos si se tocó el botón (query param "form" es "abierto")
-if st.query_params.get("form") == "abierto":
-    # Formulario con validaciones robustas
-    with st.form("form_incidente", clear_on_submit=False):
-        st.subheader("Datos Personales (Requeridos para el reporte)")
-        colA, colB, colC = st.columns(3)
-        with colA:
-            nombre = st.text_input("Nombre completo")
-        with colB:
-            email = st.text_input("Email")
-        with colC:
-            tel = st.text_input("Teléfono")
-            
-        st.divider()
-        st.subheader("Detalles del Incidente")
-        tag = st.selectbox("Tipo de problema", ["Bache", "Vereda rota", "Fuga Agua/Gas", "Inseguridad", "Accidente", "Tránsito", "Basura", "Otro"])
-        foto = st.file_uploader("Subir foto del problema", type=["jpg", "png", "jpeg"])
-        descripcion = st.text_area("Breve descripción de la situación o dirección exacta")
+# --- 5. LÓGICA DEL FORMULARIO ---
+if st.session_state.get('mostrar_form', False):
+    with st.form("form_reporte", clear_on_submit=True):
+        st.write("### Nuevo Reporte")
+        nombre = st.text_input("Nombre")
+        email = st.text_input("Email")
+        tel = st.text_input("Teléfono")
+        tag = st.selectbox("Categoría", ["Bache", "Vereda rota", "Luminaria", "Basura", "Otro"])
+        descripcion = st.text_area("Descripción/Ubicación")
+        foto = st.file_uploader("Subir Foto", type=["jpg", "png", "jpeg"])
         
-        st.info("⚠️ NOTA: Al enviar, se guardarán tus datos de contacto y la ubicación simulada (San Isidro Centro) junto con el reporte.")
-
-        btn_enviar = st.form_submit_button("Enviar Reporte Definitivo")
-        
-        # Procesar el envío
-        if btn_enviar:
-            if not all([foto, nombre, email, tel]):
-                st.error("❌ Por favor, subí una foto y completá todos tus datos personales (Nombre, Email, Teléfono).")
+        if st.form_submit_button("Enviar Reporte"):
+            if not foto or not nombre:
+                st.error("Por favor completá los datos y subí una foto.")
             else:
                 try:
-                    with st.spinner("Conectando de forma segura con Google..."):
-                        # --- BACKEND INTERNO: Autenticación segura ---
+                    with st.spinner("Guardando en la base de datos..."):
+                        # Conexión
                         scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-                        service_account_info = json.loads(st.secrets["GCP_CREDS"])
-                        creds = Credentials.from_service_account_info(service_account_info, scopes=scope)
-                        client = gspread.authorize(creds)
+                        creds = Credentials.from_service_account_info(json.loads(st.secrets["GCP_CREDS"]), scopes=scope)
                         drive_service = build('drive', 'v3', credentials=creds)
+                        client = gspread.authorize(creds)
                         
-                        # --- PROCESO: Guardar en Drive y Sheets ---
-                        
-                        # 1. Subir Foto a Google Drive
-                        file_metadata = {'name': f"ReSI_{datetime.now().strftime('%Y%m%d_%H%M%S')}", 'parents': [FOLDER_ID]}
+                        # Subir Foto (SOLO SUBIDA, SIN PERMISOS EXTRA PARA EVITAR ERRORES)
+                        file_metadata = {'name': f"ReSI_{datetime.now().strftime('%Y%m%d')}", 'parents': [FOLDER_ID]}
                         media = MediaIoBaseUpload(io.BytesIO(foto.getvalue()), mimetype=foto.type)
-                        uploaded_file = drive_service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
-                        link_foto = uploaded_file.get('webViewLink')
-                       # Le damos permiso de escritura a tu mail para que puedas ver y editar la foto
-                       drive_service.permissions().create(
-                       fileId=uploaded_file.get('id'),
-                       body={'type': 'user', 'role': 'writer', 'emailAddress': 'realidadsanisidro@gmail.com'}
-                       ).execute()
-                        # 2. Guardar Datos Completos en Google Sheets
+                        file = drive_service.files().create(body=file_metadata, media_body=media, fields='webViewLink').execute()
+                        url_foto = file.get('webViewLink')
+
+                        # Guardar en Sheet
                         sheet = client.open_by_key(SPREADSHEET_ID).sheet1
-                        fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        lat, lon = -34.4746, -58.5132 # Centro de San Isidro por defecto
-                        
-                        nueva_fila = [fecha_actual, nombre, email, tel, tag, descripcion, link_foto, lat, lon, "Alerta"]
+                        nueva_fila = [datetime.now().strftime("%d/%m/%Y %H:%M"), nombre, email, tel, tag, descripcion, url_foto, -34.4746, -58.5132, "Pendiente"]
                         sheet.append_row(nueva_fila)
                         
-                        st.success("✅ ¡Reporte guardado! Ya podés verlo en el mapa.")
-                        st.query_params["form"] = "cerrado" # Cerramos el formulario al tener éxito
-
+                        st.success("✅ ¡Reporte enviado con éxito!")
+                        st.session_state.mostrar_form = False
+                        st.rerun()
                 except Exception as e:
-                    # Mensaje de error detallado para diagnosticar la conexión
-                    st.error(f"❌ Hubo un problema al guardar. El error reportado por Google es: {e}")
-                    if "invalid_grant" in str(e).lower():
-                        st.error("💡 EXPLICACIÓN: El error 'invalid_grant' significa que los secretos que pegaste en el panel de Streamlit no son válidos. Por favor, revisá que copiaste TODO el JSON (empezando con '{' y terminando con '}'), que incluiste `GCP_CREDS = '''` al principio y `'''` al final, y que no te falten caracteres al pegar.")
+                    st.error(f"Error técnico: {e}")
 
-# 3. VIDEO TUTORIAL (Reserve Space)
+# --- 6. VIDEO (PRÓXIMAMENTE) ---
 st.divider()
-with st.expander("🎥 ¿Cómo funciona ReSI? Ver Tutorial (Próximamente)", expanded=True):
-     # st.video("tutorial_resi.mp4") # Asegurate de subirlo a GitHub con este nombre
-     st.info("🚧 El video tutorial estará disponible pronto. Estamos trabajando en su producción.")
+with st.expander("🎥 Ver Tutorial de uso"):
+    st.info("El video tutorial se cargará próximamente.")
 
-# 4. MAPA DE SITUACIÓN (Visible siempre, se actualiza al cargar)
-st.subheader("Mapa de situación en San Isidro")
-
-# Instanciamos el mapa (OpenStreetMap por defecto)
+# --- 7. MAPA SIEMPRE VISIBLE ---
+st.write("### Mapa de Realidad Distrital")
 m = folium.Map(location=[-34.4746, -58.5132], zoom_start=13)
 
-# Lógica robusta para intentar leer la planilla y poblar el mapa
+# Intentar cargar puntos del mapa
 try:
-    # Autenticación segura también para el mapa (copiada de arriba para que sea independiente)
-    scope_map = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-    service_account_info_map = json.loads(st.secrets["GCP_CREDS"])
-    creds_map = Credentials.from_service_account_info(service_account_info_map, scopes=scope_map)
+    creds_map = Credentials.from_service_account_info(json.loads(st.secrets["GCP_CREDS"]), scopes=['https://www.googleapis.com/auth/spreadsheets'])
     client_map = gspread.authorize(creds_map)
+    data = pd.DataFrame(client_map.open_by_key(SPREADSHEET_ID).sheet1.get_all_records())
     
-    sheet_data = pd.DataFrame(client_map.open_by_key(SPREADSHEET_ID).sheet1.get_all_records())
-    
-    if not sheet_data.empty:
-        # Dibujamos los pines customizados si hay reportes
-        for _, row in sheet_data.iterrows():
-            # Lógica del pin custom: círculo verde con la letra R blanca
-            icon_html = f"""
-                <div style="
-                    font-family: Arial;
-                    color: white;
-                    background-color: green;
-                    border-radius: 50%;
-                    width: 30px;
-                    height: 30px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-weight: bold;
-                    border: 2px solid white;
-                    ">R</div>
-            """
-            
-            folium.Marker(
-                [row['lat'], row['lon']],
-                popup=f"<b>{row['tag']}</b><br>Estado: {row['Estado']}<br><a href='{row['Foto']}'>Ver Foto</a>",
-                tooltip=row['tag'],
-                icon=folium.DivIcon(html=icon_html)
-            ).add_to(m)
-            
-except Exception as sheet_error:
-    # Mostramos consejos útiles si la planilla está vacía o no tiene permisos, pero no ocultamos el mapa
-    if "spreadsheet not found" in str(sheet_error).lower() or "permission denied" in str(sheet_error).lower():
-         st.warning(f"💡 El mapa no pudo cargar datos de la planilla. Error: {sheet_error}. Asegurate de compartir la planilla como Editor con el mail de la Cuenta de Servicio y que el SPREADSHEET_ID sea correcto.")
-    elif "not found" in str(sheet_error).lower() or "spreadsheet" in str(sheet_error).lower():
-        st.info("El mapa aparecerá con puntos cuando se registre el primer reporte con éxito.")
+    if not data.empty:
+        for _, r in data.iterrows():
+            # Ícono circular verde con letra R
+            icon_r = folium.DivIcon(html=f"""
+                <div style="background-color: #28a745; color: white; border-radius: 50%; width: 30px; height: 30px; 
+                display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;">R</div>
+            """)
+            folium.Marker([r['lat'], r['lon']], popup=r['Tag'], icon=icon_r).add_to(m)
+except:
+    pass # Si falla o está vacío, el mapa se muestra igual pero sin pines
 
-# Dibujamos el mapa definitivo (vacío o con puntos)
-st_folium(m, width="100%", height=500)
-
-# --- PANEL DE ADMINISTRADOR (OCULTO) ---
-st.divider()
-if st.checkbox("🔒 Ver Informe Estadístico (Solo Administradores)"):
-    pass_input = st.text_input("Contraseña Admin", type="password")
-    if pass_input == ADMIN_PASSWORD:
-        st.success("Acceso Concedido")
-        st.write("Próximamente: Gráficos de rendimiento semanal/mensual.")
+st_folium(m, width="100%", height=450)
