@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "mystical-axiom-493923-h0",
+  "private_key_id": "512060f965131da5517e5bcdcd54112fc1581f83",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEuwIBADANBgkqhkiG9w0BAQEFAASCBKUwggShAgEAAoIBAQDqrWuFh1JSpH1F\nshYtx0UDXavVnEcS44PpgCkMN529Hb1LMsYyx6gwkN7E5hkvI+2nxPJsVh+uruXB\nJGWhKCk6SGg+30CnTcKQecKPtynJbJJAXeMPPuOjD6YAIRUsyPJBd9UmkjepkOaD\n6ejMJU95+pay6rjc3DTPvzTyyK9d3UZ3fPc+90LTqNI4m8WNlMtK+Auk1Q3+/VxY\nOze/HsO7ERXuzV4nZ3aGyf8CTMc5cZkdBpuF3+kfnUgjzuzNuJ2z+kd3ahx1TBvk\nkZ5TTEdZg7Nvfu4DolGOgxKbZVLJJkOEaLS+tvbc9+Q6pEskxcljTTRZsjpOr9AN\nE2vNo09HAgMBAAECggEABtc4X1OFOBMgIYTfPtDqNHMYMew00okKibKnlu5OpG6c\nOLHYM11IXaCYiWxt1a+UbJ3k4+G8n2phXk++7qZnxfo+tvIYf9OeFTNRmR0KQvhK\nrrmlKmQOuqajCEzXTVsUuRTqD7E5ncinsnENzRKyzjOgU3z/XWxovmqg+5TwjBKS\n3iE6AWpKOymj+1xGeYHfA5oSuBCOOLTQfPexte1WmZYVVDfP8MaTFNcRR316tPQQ\ng9GP8NR4Ldn0xAmFIEW9ZrVZ2WwTxifyoJvoYKY8+oHvXIZb9oada1gFegd0RRk8\nzdM1hBE5ea/DbkELauPw2gHh9VH1/9WYlttuXLIv0QKBgQD736Vp4TJPoiYH9E1t\nNNLah6GmTK5SWcXOZtJ5b3161Gb2agbNnLRLyaeb+gLR+8pftz4XWNNpvHcAqeOt\n9uI8PyAFPtrUjfdqGxehFsskeeLDFNmxCgE9kWt36/r1IFVcprjAzqqi+VB0uKuC\nrRW+dgSOd/d/T/e2b3UFpOPrxQKBgQDuhac+Q/nq4qKabTRMBd8JAOIb3cRiDsvy\nLyxyg7P5l4Juo6OUe7H+ArMx1qEiA4/VDhWW+1Bv+F2BH8FtCcP0utMeQKJeYqdO\nxG81qdgFm+sloHai3x21/sA4SzNVqrWaHvVoU9HjqkebC4tbP87TVWSsB/Gw4v9i\nFrVoESNDmwKBgFBqaymO2L1MC9BmU4IWZ2uV+ipaOR3Zw6nOckyLKAjbX7Q0zc8/\nxOCdlYHbJKNePJKqsoxJs9YCcgwoMaUNOdX6YYLLOpq6aM/broOj/1+5+ohGU+qO\nQy8hCqrTEODKXfai1EHauegmqWVawIeMM3EHxRSngMGJCpGYrEgNCSfxAoGBANAs\nGfEABuj3cA7zbIdFQIltGepUPQeP/nOatGIljDg0AYRqkWQQKSKWXKsMtYkoLqo2\nJqWlJWj0DTea7Ygq07mOLJ/krVFPLNJUIvNlDsKmeC5Yw/IWZKnocv8ustj7qo+e\noXSyYyceAGzTQIcdQ3eyubBjJo/JLjb/tsfi3TItAn846Z0LXNq90A9P2Ltewhlt\nSgpEqXPTwdMch9TnC0Q/XPlZw1rT12LAkPt96cL/QxtAiWwR/P9D1S09SCN3Tl53\nw6Cu4OVd6ugKNGlDKp8PX04hqGN9OWjyPaRa29iEYjTf98f7sIBg9/eGe/N0zpeo\n+rwdIaUUUsHyW1rKUbCd\n-----END PRIVATE KEY-----\n",
+  "client_email": "resi-492@mystical-axiom-493923-h0.iam.gserviceaccount.com",
+  "client_id": "104189489517490297704",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/resi-492%40mystical-axiom-493923-h0.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
