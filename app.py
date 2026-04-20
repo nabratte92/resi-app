@@ -118,33 +118,72 @@ if st.session_state.mostrar_form:
                 except Exception as e:
                     st.error(f"Error al enviar: {e}")
 
-# --- 6. MAPA GENERAL DE REPORTES ---
+# --- 6. MAPA GENERAL DE REPORTES (PÚBLICO) ---
 st.divider()
-st.write("### Mapa de Realidad Distrital")
-m_gral = folium.Map(location=[-34.4746, -58.5132], zoom_start=13)
+st.write("### 🌎 Mapa de Realidad Distrital")
+st.caption("A continuación se muestran los reportes ciudadanos cargados en el distrito.")
+
+# 1. Crear el mapa base centrado en San Isidro
+m_gral = folium.Map(location=[-34.4746, -58.5132], zoom_start=13, control_scale=True)
 
 try:
+    # 2. Conexión a los datos
     json_creds_map = json.loads(st.secrets["GCP_CREDS"])
     creds_map = Credentials.from_service_account_info(json_creds_map, scopes=['https://www.googleapis.com/auth/spreadsheets'])
     client_map = gspread.authorize(creds_map)
-    data = pd.DataFrame(client_map.open_by_key(SPREADSHEET_ID).sheet1.get_all_records())
     
-    if not data.empty:
-        for _, r in data.iterrows():
-            # Ícono verde con la letra R blanca
-            icon_r = folium.DivIcon(html=f"""
-                <div style="
-                    background-color: #28a745; color: white; border-radius: 50%; width: 30px; height: 30px; 
-                    display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;
-                    box-shadow: 0px 0px 5px rgba(0,0,0,0.3);
-                ">R</div>
-            """)
-            folium.Marker(
-                [float(r['lat']), float(r['lon'])], 
-                popup=f"<b>{r['Tag']}</b><br>{r['Estado']}", 
-                icon=icon_r
-            ).add_to(m_gral)
-except:
-    pass
+    # 3. Leer la planilla y convertir a DataFrame de Pandas
+    sheet_puntos = client_map.open_by_key(SPREADSHEET_ID).sheet1.get_all_records()
+    df = pd.DataFrame(sheet_puntos)
+    
+    # 4. Dibujar los pines si hay datos
+    if not df.empty:
+        for index, r in df.iterrows():
+            try:
+                # Convertimos a número por las dudas de que vengan como texto
+                lat = float(r['lat'])
+                lon = float(r['lon'])
+                
+                # Crear el ícono verde con la letra R blanca (tu marca registrada)
+                icon_r = folium.DivIcon(html=f"""
+                    <div style="
+                        background-color: #28a745; 
+                        color: white; 
+                        border-radius: 50%; 
+                        width: 32px; 
+                        height: 32px; 
+                        display: flex; 
+                        align-items: center; 
+                        justify-content: center; 
+                        font-weight: bold; 
+                        border: 2px solid white;
+                        box-shadow: 0px 2px 5px rgba(0,0,0,0.4);
+                        font-family: Arial, sans-serif;
+                        font-size: 14px;
+                    ">R</div>
+                """)
+                
+                # Crear el globo de información (Popup)
+                contenido_popup = f"""
+                    <div style="font-family: sans-serif; font-size: 12px;">
+                        <b style="color: #28a745;">{r['Tag']}</b><br>
+                        <b>Fecha:</b> {r['Fecha']}<br>
+                        <b>Estado:</b> {r['Estado']}<br>
+                        <hr>
+                        <a href="{r['Foto']}" target="_blank">Ver Foto del Reporte</a>
+                    </div>
+                """
+                
+                folium.Marker(
+                    location=[lat, lon],
+                    popup=folium.Popup(contenido_popup, max_width=250),
+                    icon=icon_r
+                ).add_to(m_gral)
+            except (ValueError, KeyError):
+                continue # Si una fila está mal, salta a la siguiente sin trabar el mapa
 
-st_folium(m_gral, width="100%", height=450, key="map_principal")
+except Exception as e:
+    st.error(f"Error al cargar los marcadores: {e}")
+
+# 5. Renderizar el mapa final
+st_folium(m_gral, width="100%", height=500, key="map_publico")
