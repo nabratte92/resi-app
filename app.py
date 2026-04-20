@@ -62,7 +62,6 @@ if st.session_state.formulario_abierto:
                     st.session_state.formulario_abierto = False # Cerramos el formulario
             except Exception as e:
                 st.error(f"Hubo un problema al guardar: {e}")
-
 # --- MAPA (Solo se muestra si hay datos) ---
 st.subheader("Mapa de situación")
 try:
@@ -74,6 +73,12 @@ try:
         st_folium(m, width="100%", height=400)
 except Exception:
     st.info("El mapa aparecerá cuando se registre el primer reporte con éxito.")
-    st.subheader("Estadísticas de Gestión")
-        # Aquí irían los gráficos semanales/mensuales
+
+# --- SECCIÓN ADMINISTRADOR (OCULTA) ---
+st.sidebar.divider()
+with st.sidebar.expander("🔒 Panel de Control ReSI"):
+    pass_input = st.text_input("Contraseña Admin", type="password")
+    if pass_input == ADMIN_PASSWORD:
+        st.success("Acceso Concedido")
+        st.subheader("Estadísticas de Gestión")
         st.write("Próximamente: Gráficos de rendimiento y exportación de datos.")
