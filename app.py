@@ -76,7 +76,7 @@ if st.session_state.get('mostrar_form', False):
                         creds = Credentials.from_service_account_info(json_creds, scopes=scopes)
                         
                         # Construcción de servicios (Bypass de error de API Key)
-                        drive_service = build('drive', 'v3', credentials=creds, static_discovery=False)
+                        drive_service = build('drive', 'v3', credentials=creds, cache_discovery=False)
                         client = gspread.authorize(creds)
                         
                         # 1. Subir Foto
