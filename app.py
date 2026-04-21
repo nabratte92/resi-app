@@ -87,6 +87,7 @@ if st.session_state.mostrar_form:
                         creds = Credentials.from_service_account_info(json.loads(st.secrets["GCP_CREDS"]), scopes=['https://www.googleapis.com/auth/spreadsheets'])
                         sheet = gspread.authorize(creds).open_by_key(SPREADSHEET_ID).sheet1
                         
+                        # Guardamos en el orden exacto de las columnas
                         nueva_fila = [
                             datetime.now().strftime("%d/%m/%Y %H:%M"), nombre, email if email else "N/A", tel if tel else "N/A", 
                             localidad, direccion_exacta, tag, descripcion, url_foto, 
@@ -112,68 +113,84 @@ st.write("### 🌎 Mapa de Realidad Distrital")
 m_publico = folium.Map(location=[-34.4746, -58.5132], zoom_start=13)
 
 try:
-    # Conexión directa y pura a Google Sheets (Sin usar Pandas para evitar conflictos)
     creds_map = Credentials.from_service_account_info(json.loads(st.secrets["GCP_CREDS"]), scopes=['https://www.googleapis.com/auth/spreadsheets'])
-    datos = gspread.authorize(creds_map).open_by_key(SPREADSHEET_ID).sheet1.get_all_records()
+    sheet_obj = gspread.authorize(creds_map).open_by_key(SPREADSHEET_ID).sheet1
     
-    # Recorremos cada reporte uno por uno
-    for r in datos:
-        # Convertimos los nombres de tus columnas a minúsculas para que las encuentre sí o sí
-        fila = {str(k).strip().lower(): v for k, v in r.items()}
-        
-        # Extraemos coordenadas y forzamos el cambio de coma por punto
-        lat_raw = str(fila.get('lat', '')).strip().replace(',', '.')
-        lon_raw = str(fila.get('lon', '')).strip().replace(',', '.')
-        
-        # Si la fila está vacía, la salteamos silenciosamente
-        if not lat_raw or not lon_raw or lat_raw.lower() == 'nan':
-            continue
-        
-        try:
-            # Convertimos a número exacto para el mapa
-            lat = float(lat_raw)
-            lon = float(lon_raw)
-            
-            # Extraemos toda la información para la ventanita
-            tag = str(fila.get('tag', 'Reporte'))
-            dir_rep = str(fila.get('direccion', 'Ubicación no precisada'))
-            desc_rep = str(fila.get('descripcion', ''))
-            est_rep = str(fila.get('estado', 'Pendiente'))
-            fec_rep = str(fila.get('fecha', ''))
-            fot_rep = str(fila.get('foto', ''))
-            
-            # Si hay foto, preparamos la miniatura
-            img_html = f'<img src="{fot_rep}" style="width:100%; border-radius:8px; margin-top:8px; box-shadow: 0px 1px 3px gray;">' if fot_rep else ''
+    # get_all_values() trae todo como una lista pura, ignorando los nombres de los títulos
+    filas = sheet_obj.get_all_values()
+    errores = []
+    puntos_dibujados = 0
 
-            # Diseño del Pin Verde con R
-            icon_html = f"""
-            <div style="background-color: #28a745; color: white; border-radius: 50%; width: 35px; height: 35px; 
-            display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;
-            box-shadow: 0px 2px 4px rgba(0,0,0,0.5); font-family: Arial;">R</div>"""
-            
-            # La ventanita emergente (Popup) armada exactamente como la pediste
-            popup_html = f"""
-            <div style="width: 220px; font-family: sans-serif;">
-                <h4 style="margin:0; color:#28a745;">{tag}</h4>
-                <p style="font-size:12px; margin:5px 0;"><b>Ubicación:</b> {dir_rep}</p>
-                <p style="font-size:12px; margin:5px 0;"><b>Detalle:</b> {desc_rep}</p>
-                <p style="font-size:11px; margin:2px 0;"><b>Fecha:</b> {fec_rep}</p>
-                <p style="font-size:11px; margin:2px 0;"><b>Estado:</b> <span style="color:blue; font-weight:bold;">{est_rep}</span></p>
-                {img_html}
-            </div>"""
-            
-            # Clavamos el pin en el mapa
-            folium.Marker(
-                [lat, lon],
-                popup=folium.Popup(popup_html, max_width=280),
-                icon=folium.DivIcon(html=icon_html)
-            ).add_to(m_publico)
-            
-        except Exception as e:
-            pass # Si una fila tiene un error raro, simplemente sigue con la próxima sin romper la app
+    if len(filas) > 1:
+        # Salteamos la fila 0 porque son los títulos (Fecha, Nombre, etc.)
+        for i, fila in enumerate(filas[1:], start=2):
+            try:
+                # Nos aseguramos que la fila tenga al menos 11 datos para no romper
+                if len(fila) < 11:
+                    errores.append(f"Fila {i}: Faltan columnas en el Sheets.")
+                    continue
+                
+                # Leemos la Latitud en la columna J (índice 9) y Longitud en K (índice 10)
+                lat_raw = str(fila[9]).strip().replace(',', '.')
+                lon_raw = str(fila[10]).strip().replace(',', '.')
+                
+                if lat_raw == "" or lon_raw == "":
+                    errores.append(f"Fila {i}: Coordenadas en blanco.")
+                    continue
+                
+                lat = float(lat_raw)
+                lon = float(lon_raw)
+                
+                # Asignamos el resto leyendo sus posiciones
+                fecha_rep = fila[0]
+                dir_rep = fila[5]
+                tag_rep = fila[6]
+                desc_rep = fila[7]
+                foto_rep = fila[8]
+                estado_rep = fila[11] if len(fila) > 11 else "Pendiente"
+                
+                img_html = f'<img src="{foto_rep}" style="width:100%; border-radius:8px; margin-top:8px; box-shadow: 0px 1px 3px gray;">' if foto_rep and "http" in foto_rep else ''
+
+                icon_html = f"""
+                <div style="background-color: #28a745; color: white; border-radius: 50%; width: 35px; height: 35px; 
+                display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;
+                box-shadow: 0px 2px 4px rgba(0,0,0,0.5); font-family: Arial;">R</div>"""
+                
+                popup_html = f"""
+                <div style="width: 220px; font-family: sans-serif;">
+                    <h4 style="margin:0; color:#28a745;">{tag_rep}</h4>
+                    <p style="font-size:12px; margin:5px 0;"><b>Ubicación:</b> {dir_rep}</p>
+                    <p style="font-size:12px; margin:5px 0;"><b>Detalle:</b> {desc_rep[:100]}</p>
+                    <p style="font-size:11px; margin:2px 0;"><b>Fecha:</b> {fecha_rep}</p>
+                    <p style="font-size:11px; margin:2px 0;"><b>Estado:</b> <span style="color:blue; font-weight:bold;">{estado_rep}</span></p>
+                    {img_html}
+                </div>"""
+                
+                folium.Marker(
+                    [lat, lon],
+                    popup=folium.Popup(popup_html, max_width=280),
+                    icon=folium.DivIcon(html=icon_html)
+                ).add_to(m_publico)
+                
+                puntos_dibujados += 1
+                
+            except Exception as e:
+                errores.append(f"Fila {i}: Error técnico - {e}")
+
+    # ========================================================
+    # 🛠️ PANEL DE DIAGNÓSTICO RESTAURADO
+    # ========================================================
+    with st.expander("🛠️ DIAGNÓSTICO DEL MAPA (Ver Errores)"):
+        st.write(f"✅ **Puntos dibujados exitosamente:** {puntos_dibujados}")
+        st.write(f"⚠️ **Filas ignoradas con problemas:** {len(errores)}")
+        if errores:
+            for err in errores:
+                st.error(err)
+        st.write("---")
+        st.write("**Lectura cruda del Excel (Primeras 5 filas):**")
+        st.write(filas[:6])
 
 except Exception as e:
-    st.error("Conectando con la base de reportes...")
+    st.error(f"Error fatal conectando a Google Sheets: {e}")
 
-# Mostramos el mapa final
 st_folium(m_publico, width="100%", height=550, key="mapa_final_resi")
