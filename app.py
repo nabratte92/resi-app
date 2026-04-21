@@ -13,7 +13,7 @@ SPREADSHEET_ID = '1fa8cD0HVD0lzoc5aWJzYSFuLJRpKwbsp3azF82hLReo'
 
 st.set_page_config(page_title="ReSI - Realidad San Isidro", layout="centered")
 
-# --- ESTILOS CSS (SOLO COLORES, EL CENTRADO LO HACE PYTHON) ---
+# --- ESTILOS CSS ---
 st.markdown("""
     <style>
     div.stButton > button {
@@ -39,18 +39,17 @@ if 'lon_sel' not in st.session_state: st.session_state.lon_sel = -58.5132
 if 'mostrar_form' not in st.session_state: st.session_state.mostrar_form = False
 
 # --- ENCABEZADO Y BOTÓN (CENTRADO PERFECTO) ---
-# Usamos 3 columnas. La del medio contiene el logo y el botón.
-# Al estar en la misma columna y usar "use_container_width=True", quedan exactamente alineados.
+# Al ponerlos en la misma "caja" central (col_centro), quedan matemáticamente alineados
 col_izq, col_centro, col_der = st.columns([1, 2.5, 1])
-
 with col_centro:
     try:
         st.image("logo_resi.png", use_container_width=True)
     except:
         st.header("ReSI - Realidad San Isidro")
     
-    st.write("") # Pequeño espacio
+    st.write("") # Espacio en blanco
     
+    # Botón verde centrado debajo de la S y la I
     if st.button("🚨 INICIAR REPORTE", use_container_width=True):
         st.session_state.mostrar_form = True
 
@@ -73,9 +72,9 @@ if st.session_state.mostrar_form:
         nombre = st.text_input("Nombre Completo (Obligatorio)")
         email = st.text_input("Email (Opcional)")
         tel = st.text_input("Teléfono (Opcional)")
-        tag = st.selectbox("Categoría (Obligatorio)", ["Bache", "Vereda rota", "Luminaria", "Basura", "Inseguridad", "Otro"])
         localidad = st.selectbox("Localidad (Obligatorio)", ["San Isidro", "Acassuso", "Beccar", "Boulogne", "Martínez", "Villa Adelina"])
         direccion_exacta = st.text_input("Dirección del reporte (Calle y altura - Obligatorio)")
+        tag = st.selectbox("Categoría (Obligatorio)", ["Bache", "Vereda rota", "Luminaria", "Basura", "Inseguridad", "Otro"])
         descripcion = st.text_area("Descripción adicional (Opcional)")
         foto = st.file_uploader("Subir Foto (Obligatorio)", type=["jpg", "png", "jpeg"])
         
@@ -84,18 +83,18 @@ if st.session_state.mostrar_form:
                 st.error("Por favor completá los campos obligatorios.")
             else:
                 try:
-                    with st.spinner("Cargando reporte..."):
-                        # Foto a ImgBB
+                    with st.spinner("Cargando reporte en la red..."):
+                        # Sube foto a ImgBB
                         res = requests.post(f"https://api.imgbb.com/1/upload?key={st.secrets['IMGBB_API_KEY']}", files={"image": foto.getvalue()})
                         url_foto = res.json()["data"]["url"]
 
-                        # Sheets
+                        # Sube datos a Sheets
                         creds = Credentials.from_service_account_info(json.loads(st.secrets["GCP_CREDS"]), scopes=['https://www.googleapis.com/auth/spreadsheets'])
                         sheet = gspread.authorize(creds).open_by_key(SPREADSHEET_ID).sheet1
                         
+                        # Respeta absolutamente todos los campos que configuramos
                         nueva_fila = [
-                            datetime.now().strftime("%d/%m/%Y %H:%M"), 
-                            nombre, email if email else "N/A", tel if tel else "N/A", 
+                            datetime.now().strftime("%d/%m/%Y %H:%M"), nombre, email if email else "N/A", tel if tel else "N/A", 
                             localidad, direccion_exacta, tag, descripcion, url_foto, 
                             st.session_state.lat_sel, st.session_state.lon_sel, "Pendiente"
                         ]
@@ -119,47 +118,78 @@ st.write("### 🌎 Mapa de Realidad Distrital")
 m_publico = folium.Map(location=[-34.4746, -58.5132], zoom_start=13)
 
 try:
-    # Conectamos y bajamos TODOS los datos usando los nombres de las columnas
     creds_map = Credentials.from_service_account_info(json.loads(st.secrets["GCP_CREDS"]), scopes=['https://www.googleapis.com/auth/spreadsheets'])
     datos = gspread.authorize(creds_map).open_by_key(SPREADSHEET_ID).sheet1.get_all_records()
     df = pd.DataFrame(datos)
     
-    # Si la planilla no está vacía, empezamos a dibujar
-    if not df.empty:
-        for _, r in df.iterrows():
-            # Verificamos que lat y lon no estén vacíos en esa fila
-            if pd.isna(r.get('lat')) or pd.isna(r.get('lon')) or str(r.get('lat')).strip() == "":
-                continue # Saltamos las filas vacías
+    # ========================================================
+    # 🛠️ MODO DIAGNÓSTICO (ESTO ES LA CLAVE PARA VER EL ERROR)
+    # ========================================================
+    with st.expander("🛠️ DIAGNÓSTICO DEL MAPA (Abrí esto si no ves los pines)"):
+        st.write("Esta tabla muestra literalmente lo que la aplicación está pudiendo leer de tu Google Sheets:")
+        st.write("**Nombres exactos de tus columnas:**", df.columns.tolist())
+        st.dataframe(df)
+    
+    errores = []
 
-            # Limpiamos las coordenadas
-            lat = float(str(r['lat']).replace(',', '.'))
-            lon = float(str(r['lon']).replace(',', '.'))
-            
-            # El ícono "R"
-            icon_html = f"""
-            <div style="background-color: #28a745; color: white; border-radius: 50%; width: 35px; height: 35px; 
-            display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;
-            box-shadow: 0px 2px 4px rgba(0,0,0,0.5); font-family: Arial;">R</div>"""
-            
-            # Ventanita (Popup) con todos los datos que pediste
-            popup_html = f"""
-            <div style="width: 240px; font-family: sans-serif;">
-                <h4 style="margin:0; color:#28a745;">{r.get('Tag', 'Reporte')}</h4>
-                <p style="font-size:12px; margin:5px 0;"><b>Ubicación:</b> {r.get('Direccion', 'No especificada')}</p>
-                <p style="font-size:12px; margin:5px 0;"><b>Descripción:</b> {str(r.get('Descripcion', ''))[:100]}...</p>
-                <p style="font-size:11px; margin:2px 0;"><b>Estado:</b> <span style="color:blue; font-weight:bold;">{r.get('Estado', 'Pendiente')}</span></p>
-                <p style="font-size:11px; margin:2px 0;"><b>Fecha:</b> {r.get('Fecha', '')}</p>
-                <img src="{r.get('Foto', '')}" style="width:100%; border-radius:8px; margin-top:8px; box-shadow: 0px 1px 3px gray;">
-            </div>"""
-            
-            folium.Marker(
-                [lat, lon],
-                popup=folium.Popup(popup_html, max_width=280),
-                icon=folium.DivIcon(html=icon_html)
-            ).add_to(m_publico)
+    if not df.empty:
+        # Esto elimina problemas si las columnas tienen mayúsculas o espacios por accidente
+        df.columns = df.columns.str.lower().str.strip()
+
+        for index, r in df.iterrows():
+            try:
+                # Buscamos las coordenadas (acepta si se llama lat o latitud)
+                lat_val = r.get('lat') or r.get('latitud')
+                lon_val = r.get('lon') or r.get('longitud')
+                
+                if pd.isna(lat_val) or pd.isna(lon_val) or str(lat_val).strip() == "":
+                    errores.append(f"Fila {index+2}: Coordenadas vacías")
+                    continue
+                
+                lat = float(str(lat_val).replace(',', '.'))
+                lon = float(str(lon_val).replace(',', '.'))
+                
+                # Rescate de datos (se adapta a tus nombres de columnas)
+                tag = str(r.get('tag', r.get('categoría', 'Reporte')))
+                dir_rep = str(r.get('direccion', r.get('dirección', 'Sin dirección')))
+                desc_rep = str(r.get('descripcion', r.get('descripción', '')))
+                if len(desc_rep) > 100: desc_rep = desc_rep[:100] + "..."
+                est_rep = str(r.get('estado', 'Pendiente'))
+                fec_rep = str(r.get('fecha', ''))
+                fot_rep = str(r.get('foto', ''))
+
+                # Diseño del Pin Verde con R
+                icon_html = f"""
+                <div style="background-color: #28a745; color: white; border-radius: 50%; width: 35px; height: 35px; 
+                display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;
+                box-shadow: 0px 2px 4px rgba(0,0,0,0.5); font-family: Arial;">R</div>"""
+                
+                # Ventana emergente (Popup) con todos tus requisitos y la foto miniatura
+                popup_html = f"""
+                <div style="width: 220px; font-family: sans-serif;">
+                    <h4 style="margin:0; color:#28a745;">{tag}</h4>
+                    <p style="font-size:12px; margin:5px 0;"><b>Ubicación:</b> {dir_rep}</p>
+                    <p style="font-size:12px; margin:5px 0;"><b>Detalle:</b> {desc_rep}</p>
+                    <p style="font-size:11px; margin:2px 0;"><b>Fecha:</b> {fec_rep}</p>
+                    <p style="font-size:11px; margin:2px 0;"><b>Estado:</b> <span style="color:blue; font-weight:bold;">{est_rep}</span></p>
+                    <img src="{fot_rep}" style="width:100%; border-radius:8px; margin-top:8px; box-shadow: 0px 1px 3px gray;">
+                </div>"""
+                
+                folium.Marker(
+                    [lat, lon],
+                    popup=folium.Popup(popup_html, max_width=280),
+                    icon=folium.DivIcon(html=icon_html)
+                ).add_to(m_publico)
+                
+            except Exception as e:
+                errores.append(f"Fila {index+2} de Excel: {e}")
+
+        # Si el mapa encontró errores para dibujar puntos, te los muestra acá
+        if errores:
+            with st.expander("⚠️ Ver motivos por los que algunos pines no aparecen"):
+                st.write(errores)
 
 except Exception as e:
-    # ¡ESTO ES CLAVE! Si el mapa falla ahora nos va a decir por qué en la pantalla.
-    st.error(f"Error al leer los datos para el mapa: {e}. Revisá que las columnas en Sheets se llamen exactamente 'lat', 'lon', 'Tag', 'Direccion', 'Descripcion', 'Estado', 'Fecha' y 'Foto'.")
+    st.error(f"Error cargando base de datos del mapa: {e}")
 
 st_folium(m_publico, width="100%", height=550, key="mapa_final")
