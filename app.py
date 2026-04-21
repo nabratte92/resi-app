@@ -1,5 +1,4 @@
 import streamlit as st
-import pandas as pd
 import folium
 from streamlit_folium import st_folium
 import gspread
@@ -39,7 +38,6 @@ if 'lon_sel' not in st.session_state: st.session_state.lon_sel = -58.5132
 if 'mostrar_form' not in st.session_state: st.session_state.mostrar_form = False
 
 # --- ENCABEZADO Y BOTÓN (CENTRADO PERFECTO) ---
-# Al ponerlos en la misma "caja" central (col_centro), quedan matemáticamente alineados
 col_izq, col_centro, col_der = st.columns([1, 2.5, 1])
 with col_centro:
     try:
@@ -47,9 +45,8 @@ with col_centro:
     except:
         st.header("ReSI - Realidad San Isidro")
     
-    st.write("") # Espacio en blanco
+    st.write("") 
     
-    # Botón verde centrado debajo de la S y la I
     if st.button("🚨 INICIAR REPORTE", use_container_width=True):
         st.session_state.mostrar_form = True
 
@@ -73,7 +70,7 @@ if st.session_state.mostrar_form:
         email = st.text_input("Email (Opcional)")
         tel = st.text_input("Teléfono (Opcional)")
         localidad = st.selectbox("Localidad (Obligatorio)", ["San Isidro", "Acassuso", "Beccar", "Boulogne", "Martínez", "Villa Adelina"])
-        direccion_exacta = st.text_input("Dirección del reporte (Calle y altura - Obligatorio)")
+        direccion_exacta = st.text_input("Dirección del reporte (Calle y altura o esquina - Obligatorio)")
         tag = st.selectbox("Categoría (Obligatorio)", ["Bache", "Vereda rota", "Luminaria", "Basura", "Inseguridad", "Otro"])
         descripcion = st.text_area("Descripción adicional (Opcional)")
         foto = st.file_uploader("Subir Foto (Obligatorio)", type=["jpg", "png", "jpeg"])
@@ -84,15 +81,12 @@ if st.session_state.mostrar_form:
             else:
                 try:
                     with st.spinner("Cargando reporte en la red..."):
-                        # Sube foto a ImgBB
                         res = requests.post(f"https://api.imgbb.com/1/upload?key={st.secrets['IMGBB_API_KEY']}", files={"image": foto.getvalue()})
                         url_foto = res.json()["data"]["url"]
 
-                        # Sube datos a Sheets
                         creds = Credentials.from_service_account_info(json.loads(st.secrets["GCP_CREDS"]), scopes=['https://www.googleapis.com/auth/spreadsheets'])
                         sheet = gspread.authorize(creds).open_by_key(SPREADSHEET_ID).sheet1
                         
-                        # Respeta absolutamente todos los campos que configuramos
                         nueva_fila = [
                             datetime.now().strftime("%d/%m/%Y %H:%M"), nombre, email if email else "N/A", tel if tel else "N/A", 
                             localidad, direccion_exacta, tag, descripcion, url_foto, 
@@ -118,78 +112,68 @@ st.write("### 🌎 Mapa de Realidad Distrital")
 m_publico = folium.Map(location=[-34.4746, -58.5132], zoom_start=13)
 
 try:
+    # Conexión directa y pura a Google Sheets (Sin usar Pandas para evitar conflictos)
     creds_map = Credentials.from_service_account_info(json.loads(st.secrets["GCP_CREDS"]), scopes=['https://www.googleapis.com/auth/spreadsheets'])
     datos = gspread.authorize(creds_map).open_by_key(SPREADSHEET_ID).sheet1.get_all_records()
-    df = pd.DataFrame(datos)
     
-    # ========================================================
-    # 🛠️ MODO DIAGNÓSTICO (ESTO ES LA CLAVE PARA VER EL ERROR)
-    # ========================================================
-    with st.expander("🛠️ DIAGNÓSTICO DEL MAPA (Abrí esto si no ves los pines)"):
-        st.write("Esta tabla muestra literalmente lo que la aplicación está pudiendo leer de tu Google Sheets:")
-        st.write("**Nombres exactos de tus columnas:**", df.columns.tolist())
-        st.dataframe(df)
-    
-    errores = []
+    # Recorremos cada reporte uno por uno
+    for r in datos:
+        # Convertimos los nombres de tus columnas a minúsculas para que las encuentre sí o sí
+        fila = {str(k).strip().lower(): v for k, v in r.items()}
+        
+        # Extraemos coordenadas y forzamos el cambio de coma por punto
+        lat_raw = str(fila.get('lat', '')).strip().replace(',', '.')
+        lon_raw = str(fila.get('lon', '')).strip().replace(',', '.')
+        
+        # Si la fila está vacía, la salteamos silenciosamente
+        if not lat_raw or not lon_raw or lat_raw.lower() == 'nan':
+            continue
+        
+        try:
+            # Convertimos a número exacto para el mapa
+            lat = float(lat_raw)
+            lon = float(lon_raw)
+            
+            # Extraemos toda la información para la ventanita
+            tag = str(fila.get('tag', 'Reporte'))
+            dir_rep = str(fila.get('direccion', 'Ubicación no precisada'))
+            desc_rep = str(fila.get('descripcion', ''))
+            est_rep = str(fila.get('estado', 'Pendiente'))
+            fec_rep = str(fila.get('fecha', ''))
+            fot_rep = str(fila.get('foto', ''))
+            
+            # Si hay foto, preparamos la miniatura
+            img_html = f'<img src="{fot_rep}" style="width:100%; border-radius:8px; margin-top:8px; box-shadow: 0px 1px 3px gray;">' if fot_rep else ''
 
-    if not df.empty:
-        # Esto elimina problemas si las columnas tienen mayúsculas o espacios por accidente
-        df.columns = df.columns.str.lower().str.strip()
-
-        for index, r in df.iterrows():
-            try:
-                # Buscamos las coordenadas (acepta si se llama lat o latitud)
-                lat_val = r.get('lat') or r.get('latitud')
-                lon_val = r.get('lon') or r.get('longitud')
-                
-                if pd.isna(lat_val) or pd.isna(lon_val) or str(lat_val).strip() == "":
-                    errores.append(f"Fila {index+2}: Coordenadas vacías")
-                    continue
-                
-                lat = float(str(lat_val).replace(',', '.'))
-                lon = float(str(lon_val).replace(',', '.'))
-                
-                # Rescate de datos (se adapta a tus nombres de columnas)
-                tag = str(r.get('tag', r.get('categoría', 'Reporte')))
-                dir_rep = str(r.get('direccion', r.get('dirección', 'Sin dirección')))
-                desc_rep = str(r.get('descripcion', r.get('descripción', '')))
-                if len(desc_rep) > 100: desc_rep = desc_rep[:100] + "..."
-                est_rep = str(r.get('estado', 'Pendiente'))
-                fec_rep = str(r.get('fecha', ''))
-                fot_rep = str(r.get('foto', ''))
-
-                # Diseño del Pin Verde con R
-                icon_html = f"""
-                <div style="background-color: #28a745; color: white; border-radius: 50%; width: 35px; height: 35px; 
-                display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;
-                box-shadow: 0px 2px 4px rgba(0,0,0,0.5); font-family: Arial;">R</div>"""
-                
-                # Ventana emergente (Popup) con todos tus requisitos y la foto miniatura
-                popup_html = f"""
-                <div style="width: 220px; font-family: sans-serif;">
-                    <h4 style="margin:0; color:#28a745;">{tag}</h4>
-                    <p style="font-size:12px; margin:5px 0;"><b>Ubicación:</b> {dir_rep}</p>
-                    <p style="font-size:12px; margin:5px 0;"><b>Detalle:</b> {desc_rep}</p>
-                    <p style="font-size:11px; margin:2px 0;"><b>Fecha:</b> {fec_rep}</p>
-                    <p style="font-size:11px; margin:2px 0;"><b>Estado:</b> <span style="color:blue; font-weight:bold;">{est_rep}</span></p>
-                    <img src="{fot_rep}" style="width:100%; border-radius:8px; margin-top:8px; box-shadow: 0px 1px 3px gray;">
-                </div>"""
-                
-                folium.Marker(
-                    [lat, lon],
-                    popup=folium.Popup(popup_html, max_width=280),
-                    icon=folium.DivIcon(html=icon_html)
-                ).add_to(m_publico)
-                
-            except Exception as e:
-                errores.append(f"Fila {index+2} de Excel: {e}")
-
-        # Si el mapa encontró errores para dibujar puntos, te los muestra acá
-        if errores:
-            with st.expander("⚠️ Ver motivos por los que algunos pines no aparecen"):
-                st.write(errores)
+            # Diseño del Pin Verde con R
+            icon_html = f"""
+            <div style="background-color: #28a745; color: white; border-radius: 50%; width: 35px; height: 35px; 
+            display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;
+            box-shadow: 0px 2px 4px rgba(0,0,0,0.5); font-family: Arial;">R</div>"""
+            
+            # La ventanita emergente (Popup) armada exactamente como la pediste
+            popup_html = f"""
+            <div style="width: 220px; font-family: sans-serif;">
+                <h4 style="margin:0; color:#28a745;">{tag}</h4>
+                <p style="font-size:12px; margin:5px 0;"><b>Ubicación:</b> {dir_rep}</p>
+                <p style="font-size:12px; margin:5px 0;"><b>Detalle:</b> {desc_rep}</p>
+                <p style="font-size:11px; margin:2px 0;"><b>Fecha:</b> {fec_rep}</p>
+                <p style="font-size:11px; margin:2px 0;"><b>Estado:</b> <span style="color:blue; font-weight:bold;">{est_rep}</span></p>
+                {img_html}
+            </div>"""
+            
+            # Clavamos el pin en el mapa
+            folium.Marker(
+                [lat, lon],
+                popup=folium.Popup(popup_html, max_width=280),
+                icon=folium.DivIcon(html=icon_html)
+            ).add_to(m_publico)
+            
+        except Exception as e:
+            pass # Si una fila tiene un error raro, simplemente sigue con la próxima sin romper la app
 
 except Exception as e:
-    st.error(f"Error cargando base de datos del mapa: {e}")
+    st.error("Conectando con la base de reportes...")
 
-st_folium(m_publico, width="100%", height=550, key="mapa_final")
+# Mostramos el mapa final
+st_folium(m_publico, width="100%", height=550, key="mapa_final_resi")
