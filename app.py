@@ -12,9 +12,9 @@ import pandas as pd
 SPREADSHEET_ID = '1fa8cD0HVD0lzoc5aWJzYSFuLJRpKwbsp3azF82hLReo'
 ADMIN_PASSWORD = 'resi_admin_2026'
 
-st.set_page_config(page_title="ReSI - San Isidro", layout="centered")
+st.set_page_config(page_title="ReSI - Realidad San Isidro", layout="centered")
 
-# --- 2. ESTILOS CSS (DISEÑO REFORZADO) ---
+# --- 2. ESTILOS CSS ---
 st.markdown("""
     <style>
     div.stButton > button {
@@ -25,12 +25,23 @@ st.markdown("""
         padding: 15px;
         border-radius: 10px;
         border: none;
+        display: block;
+        margin: 0 auto;
     }
     div.stButton > button:hover {
         background-color: #218838 !important;
     }
     header {visibility: hidden;}
     footer {visibility: hidden;}
+    .slogan {
+        text-align: center;
+        font-size: 19px;
+        font-style: italic;
+        color: #444;
+        margin-top: -15px;
+        margin-bottom: 25px;
+        font-family: 'Arial', sans-serif;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -39,39 +50,34 @@ if 'lat_sel' not in st.session_state: st.session_state.lat_sel = -34.4746
 if 'lon_sel' not in st.session_state: st.session_state.lon_sel = -58.5132
 if 'mostrar_form' not in st.session_state: st.session_state.mostrar_form = False
 
-# --- 3. BARRA LATERAL (GESTIÓN DE ADMINISTRADOR) ---
+# --- 3. BARRA LATERAL (GESTIÓN) ---
 with st.sidebar:
     st.title("🛠️ Gestión ReSI")
-    pwd_input = st.text_input("Acceso Administrador", type="password", placeholder="Ingresá la clave...")
+    pwd_input = st.text_input("Acceso Administrador", type="password", placeholder="Clave...")
     es_admin = (pwd_input == ADMIN_PASSWORD)
-    
     if es_admin:
         st.success("Modo Administrador Activo")
-        st.divider()
-        st.write("Bienvenido, Nico.")
 
-# --- 4. ENCABEZADO, ESLOGAN Y BOTÓN ---
-col_izq, col_centro, col_der = st.columns([1, 2.5, 1])
+# --- 4. CABECERA (LOGO, SLOGAN Y BOTÓN) ---
+col_izq, col_centro, col_der = st.columns([1, 3, 1])
 with col_centro:
     try:
         st.image("logo_resi.png", use_container_width=True)
     except:
         st.header("ReSI - Realidad San Isidro")
     
-    # Eslogan agregado con estilo
-    st.markdown("<p style='text-align: center; font-size: 18px; font-style: italic; color: #555; margin-top: -10px; margin-bottom: 20px;'>Una herramienta para que el intendente y sus funcionarios se ubiquen en el mapa</p>", unsafe_allow_html=True)
+    # Slogan centrado
+    st.markdown('<p class="slogan">Una herramienta para que el intendente y sus funcionarios se ubiquen en el mapa</p>', unsafe_allow_html=True)
     
     if st.button("🚨 INICIAR REPORTE", use_container_width=True):
         st.session_state.mostrar_form = True
 
-# --- 5. FORMULARIO DE REPORTE (PÚBLICO) ---
+# --- 5. FORMULARIO DE REPORTE ---
 if st.session_state.mostrar_form:
     st.markdown("---")
-    st.write("### 📍 1. Seleccioná el punto exacto en el mapa")
-    
+    st.write("### 📍 1. Ubicación exacta")
     m_sel = folium.Map(location=[st.session_state.lat_sel, st.session_state.lon_sel], zoom_start=15)
     folium.Marker([st.session_state.lat_sel, st.session_state.lon_sel], icon=folium.Icon(color='red')).add_to(m_sel)
-    
     out = st_folium(m_sel, width="100%", height=300, key="selector")
     if out and out.get("last_clicked"):
         st.session_state.lat_sel = out["last_clicked"]["lat"]
@@ -79,141 +85,88 @@ if st.session_state.mostrar_form:
         st.rerun()
 
     with st.form("form_reporte", clear_on_submit=True):
-        st.write("### 📝 2. Datos del Reporte")
         nombre = st.text_input("Nombre Completo (Obligatorio)")
         email = st.text_input("Email (Opcional)")
         tel = st.text_input("Teléfono (Opcional)")
         tag = st.selectbox("Categoría (Obligatorio)", ["Bache", "Vereda rota", "Luminaria", "Basura", "Inseguridad", "Otro"])
         localidad = st.selectbox("Localidad (Obligatorio)", ["San Isidro", "Acassuso", "Beccar", "Boulogne", "Martínez", "Villa Adelina"])
-        direccion_exacta = st.text_input("Dirección del reporte (Calle y altura - Obligatorio)")
+        direccion_exacta = st.text_input("Dirección (Calle y altura - Obligatorio)")
         descripcion = st.text_area("Descripción adicional (Opcional)")
         foto = st.file_uploader("Subir Foto (Obligatorio)", type=["jpg", "png", "jpeg"])
         
         if st.form_submit_button("ENVIAR REPORTE", use_container_width=True):
             if not foto or not nombre or not localidad or not direccion_exacta:
-                st.error("Por favor completá los campos obligatorios.")
+                st.error("Completá los campos obligatorios.")
             else:
                 try:
-                    with st.spinner("Cargando reporte en la red ReSI..."):
-                        # Subida a ImgBB
+                    with st.spinner("Cargando..."):
                         res = requests.post(f"https://api.imgbb.com/1/upload?key={st.secrets['IMGBB_API_KEY']}", files={"image": foto.getvalue()})
                         url_foto = res.json()["data"]["url"]
-
-                        # Guardado en Google Sheets
                         creds = Credentials.from_service_account_info(json.loads(st.secrets["GCP_CREDS"]), scopes=['https://www.googleapis.com/auth/spreadsheets'])
                         sheet = gspread.authorize(creds).open_by_key(SPREADSHEET_ID).sheet1
-                        
-                        lat_arg = str(st.session_state.lat_sel).replace('.', ',')
-                        lon_arg = str(st.session_state.lon_sel).replace('.', ',')
-                        
-                        nueva_fila = [
-                            datetime.now().strftime("%d/%m/%Y %H:%M"), nombre, email if email else "N/A", tel if tel else "N/A", 
-                            localidad, direccion_exacta, tag, descripcion, url_foto, 
-                            lat_arg, lon_arg, "Pendiente"
-                        ]
+                        nueva_fila = [datetime.now().strftime("%d/%m/%Y %H:%M"), nombre, email if email else "N/A", tel if tel else "N/A", localidad, direccion_exacta, tag, descripcion, url_foto, str(st.session_state.lat_sel).replace('.', ','), str(st.session_state.lon_sel).replace('.', ','), "Pendiente"]
                         sheet.append_row(nueva_fila)
-                        
-                        st.success("✅ ¡Reporte enviado con éxito!")
+                        st.success("✅ ¡Enviado!")
                         st.session_state.mostrar_form = False
-                        st.balloons()
                         st.rerun()
-                except Exception as e:
-                    st.error(f"Error al enviar: {e}")
+                except Exception as e: st.error(f"Error: {e}")
 
-# --- 6. VIDEO TUTORIAL VISIBLE DIRECTAMENTE (TAMAÑO REDUCIDO) ---
+# --- 6. VIDEO TUTORIAL (CENTRADO Y CHICO) ---
 st.divider()
 st.write("### 🎥 Tutorial de Uso")
+c1, c2, c3 = st.columns([1, 1.8, 1])
+with c2:
+    try:
+        st.video("tutorial.mp4")
+    except:
+        st.info("Video no encontrado en el repositorio.")
 
-col_vid_izq, col_vid_centro, col_vid_der = st.columns([1, 2, 1])
-with col_vid_centro:
-    st.video("tutorial.mp4")
-
-# --- 7. MAPA DE REALIDAD DISTRITAL (PÚBLICO) ---
+# --- 7. MAPA PRINCIPAL ---
 st.divider()
 st.write("### 🌎 Mapa de Realidad Distrital")
-m_publico = folium.Map(location=[-34.4746, -58.5132], zoom_start=13)
+m_p = folium.Map(location=[-34.4746, -58.5132], zoom_start=13)
 
 try:
-    creds_map = Credentials.from_service_account_info(json.loads(st.secrets["GCP_CREDS"]), scopes=['https://www.googleapis.com/auth/spreadsheets'])
-    sheet_obj = gspread.authorize(creds_map).open_by_key(SPREADSHEET_ID).sheet1
-    filas = sheet_obj.get_all_values()
-    
-    if len(filas) > 1:
-        for i, fila in enumerate(filas[1:], start=2):
+    creds = Credentials.from_service_account_info(json.loads(st.secrets["GCP_CREDS"]), scopes=['https://www.googleapis.com/auth/spreadsheets'])
+    sh = gspread.authorize(creds).open_by_key(SPREADSHEET_ID).sheet1
+    rows = sh.get_all_values()
+    if len(rows) > 1:
+        for r in rows[1:]:
             try:
-                if len(fila) < 11:
-                    continue
-                
-                lat_raw = str(fila[9]).strip().replace(',', '.')
-                lon_raw = str(fila[10]).strip().replace(',', '.')
-                
-                if lat_raw == "" or lon_raw == "":
-                    continue
-                
-                lat = float(lat_raw)
-                lon = float(lon_raw)
-                
-                fecha_rep = fila[0]
-                dir_rep = fila[5]
-                tag_rep = fila[6]
-                desc_rep = fila[7]
-                foto_rep = fila[8]
-                estado_rep = fila[11] if len(fila) > 11 else "Pendiente"
-                
-                img_html = f'<img src="{foto_rep}" style="width:100%; border-radius:8px; margin-top:8px; box-shadow: 0px 1px 3px gray;">' if foto_rep and "http" in foto_rep else ''
-
-                icon_html = f"""
-                <div style="background-color: #28a745; color: white; border-radius: 50%; width: 35px; height: 35px; 
-                display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;
-                box-shadow: 0px 2px 4px rgba(0,0,0,0.5); font-family: Arial;">R</div>"""
-                
-                popup_html = f"""
-                <div style="width: 220px; font-family: sans-serif;">
-                    <h4 style="margin:0; color:#28a745;">{tag_rep}</h4>
-                    <p style="font-size:12px; margin:5px 0;"><b>Ubicación:</b> {dir_rep}</p>
-                    <p style="font-size:12px; margin:5px 0;"><b>Detalle:</b> {desc_rep[:100]}</p>
-                    <p style="font-size:11px; margin:2px 0;"><b>Fecha:</b> {fecha_rep}</p>
-                    <p style="font-size:11px; margin:2px 0;"><b>Estado:</b> <span style="color:blue; font-weight:bold;">{estado_rep}</span></p>
-                    {img_html}
-                </div>"""
-                
-                folium.Marker(
-                    [lat, lon],
-                    popup=folium.Popup(popup_html, max_width=280),
-                    icon=folium.DivIcon(html=icon_html)
-                ).add_to(m_publico)
+                lt = float(str(r[9]).replace(',', '.'))
+                ln = float(str(r[10]).replace(',', '.'))
+                pop = f"""<div style='width:200px; font-family:sans-serif;'>
+                <h4 style='color:#28a745; margin:0;'>{r[6]}</h4>
+                <p style='font-size:12px; margin:5px 0;'><b>Ubicación:</b> {r[5]}</p>
+                <p style='font-size:11px; margin:2px 0;'><b>Fecha:</b> {r[0]}</p>
+                <img src='{r[8]}' style='width:100%; border-radius:5px;'></div>"""
+                icon = f'<div style="background-color:#28a745; color:white; border-radius:50%; width:35px; height:35px; display:flex; align-items:center; justify-content:center; font-weight:bold; border:2px solid white;">R</div>'
+                folium.Marker([lt, ln], popup=folium.Popup(pop, max_width=250), icon=folium.DivIcon(html=icon)).add_to(m_p)
             except: continue
+    st_folium(m_p, width="100%", height=500, key="mapa_final")
 
-    st_folium(m_publico, width="100%", height=550, key="mapa_final_resi")
-
-    # --- 8. HERRAMIENTAS EXCLUSIVAS DE ADMINISTRADOR ---
+    # --- 8. ESTADÍSTICAS ADMIN ---
     if es_admin:
         st.divider()
-        st.header("📊 Panel Integral de Análisis (Privado)")
+        st.header("📊 Estadísticas de Gestión")
+        df = pd.DataFrame(rows[1:], columns=rows[0])
+        # Limpieza de nombres de columnas por si acaso
+        df.columns = [c.strip() for c in df.columns]
         
-        df = pd.DataFrame(filas[1:], columns=filas[0])
-        
-        def col(nombre_buscado):
-            for c in df.columns:
-                if nombre_buscado.lower() in c.lower(): return c
-            return None
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Total Reportes", len(df))
+        if 'Nombre' in df.columns: c2.metric("Aportantes Únicos", df['Nombre'].nunique())
+        if 'Estado' in df.columns: c3.metric("Pendientes", len(df[df['Estado'] == 'Pendiente']))
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("📌 Total Reportes", len(df))
+        st.subheader("Reportes por Categoría")
+        if 'Tag' in df.columns: st.bar_chart(df['Tag'].value_counts())
         
-        col_nom = col('Nombre')
-        if col_nom:
-            col2.metric("👥 Aportantes Únicos", df[col_nom].nunique())
-            
-        col_est = col('Estado')
-        if col_est:
-            col3.metric("⏳ Pendientes", len(df[df[col_est] == 'Pendiente']))
+        st.subheader("Reportes por Localidad")
+        if 'Localidad' in df.columns: st.bar_chart(df['Localidad'].value_counts())
 
-        st.write("---")
-        
-        col_graf1, col_graf2 = st.columns(2)
-        
-        with col_graf1:
-            st.subheader("Distribución por Categoría")
-            col_tag = col('Tag')
-            if col_
+        st.subheader("Evolución Temporal")
+        if 'Fecha' in df.columns:
+            df['f'] = pd.to_datetime(df['Fecha'], format='%d/%m/%Y %H:%M', errors='coerce')
+            st.line_chart(df['f'].dt.to_period('M').astype(str).value_counts().sort_index())
+
+except Exception as e: st.error("Error al cargar datos.")
