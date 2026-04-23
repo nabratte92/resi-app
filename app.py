@@ -119,7 +119,7 @@ if st.session_state.mostrar_form:
 # --- 6. VIDEO TUTORIAL ---
 st.divider()
 with st.expander("🎥 Ver Tutorial de uso"):
-    st.info("Espacio reservado para el video tutorial de ReSI.")
+    st.video("tutorial.mp4")
 
 # --- 7. MAPA DE REALIDAD DISTRITAL (PÚBLICO) ---
 st.write("### 🌎 Mapa de Realidad Distrital")
