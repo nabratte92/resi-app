@@ -119,7 +119,11 @@ if st.session_state.mostrar_form:
 # --- 6. VIDEO TUTORIAL ---
 st.divider()
 with st.expander("🎥 Ver Tutorial de uso"):
-    st.video("tutorial.mp4")
+    # Si usás un link de YouTube:
+    st.video("https://www.youtube.com/watch?v=TU_LINK_ACA", autoplay=True)
+    
+    # O si usás un archivo de tu compu (borrá la de arriba y dejá esta):
+    # st.video("tutorial.mp4", autoplay=True)
 
 # --- 7. MAPA DE REALIDAD DISTRITAL (PÚBLICO) ---
 st.write("### 🌎 Mapa de Realidad Distrital")
