@@ -116,10 +116,10 @@ if st.session_state.mostrar_form:
                 except Exception as e:
                     st.error(f"Error al enviar: {e}")
 
-# --- 6. VIDEO TUTORIAL ---
+# --- 6. VIDEO TUTORIAL VISIBLE DIRECTAMENTE ---
 st.divider()
-with st.expander("🎥 Ver Tutorial de uso"):
-    st.video("tutorial.mp4")
+st.write("### 🎥 Tutorial de Uso")
+st.video("tutorial.mp4")
 
 # --- 7. MAPA DE REALIDAD DISTRITAL (PÚBLICO) ---
 st.write("### 🌎 Mapa de Realidad Distrital")
