@@ -116,10 +116,14 @@ if st.session_state.mostrar_form:
                 except Exception as e:
                     st.error(f"Error al enviar: {e}")
 
-# --- 6. VIDEO TUTORIAL VISIBLE DIRECTAMENTE ---
+# --- 6. VIDEO TUTORIAL VISIBLE DIRECTAMENTE (TAMAÑO REDUCIDO) ---
 st.divider()
 st.write("### 🎥 Tutorial de Uso")
-st.video("tutorial.mp4")
+
+# Usamos columnas para "apretar" el video al centro y achicarlo
+col_vid_izq, col_vid_centro, col_vid_der = st.columns([1, 2, 1])
+with col_vid_centro:
+    st.video("tutorial.mp4")
 
 # --- 7. MAPA DE REALIDAD DISTRITAL (PÚBLICO) ---
 st.write("### 🌎 Mapa de Realidad Distrital")
