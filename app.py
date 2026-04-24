@@ -60,7 +60,7 @@ with st.sidebar:
 
 # --- 4. CABECERA (LOGO, SLOGAN Y BOTÓN) ---
 # Ampliamos la proporción de la columna central (de 3 a 5) para agrandar el logo y el botón
-col_izq, col_centro, col_der = st.columns([1, 15, 1])
+col_izq, col_centro, col_der = st.columns([1, 25, 1])
 with col_centro:
     try:
         st.image("logo_resi.png", use_container_width=True)
