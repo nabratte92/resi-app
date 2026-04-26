@@ -12,12 +12,12 @@ import pandas as pd
 SPREADSHEET_ID = '1fa8cD0HVD0lzoc5aWJzYSFuLJRpKwbsp3azF82hLReo'
 ADMIN_PASSWORD = 'resi_admin_2026'
 
-# Listas de categorías según gravedad
-CATS_NEGRAS = ["Poste en riesgo de caída", "Hecho de inseguridad", "Riesgo de derrumbe", "Árbol caído", "Abuso de autoridad", "Plagas", "Fuga de gas"]
-CATS_ROJAS = ["Contenedor desbordado", "Corte de luz", "Cloaca colapsada", "Zanja tapada", "Pérdida de agua", "Corte de agua"]
+# Listas de categorías según NUEVA gravedad (Rojo, Naranja, Amarillo)
+CATS_ROJAS = ["Poste en riesgo de caída", "Hecho de inseguridad", "Riesgo de derrumbe", "Árbol caído", "Abuso de autoridad", "Plagas", "Fuga de gas"]
+CATS_NARANJAS = ["Contenedor desbordado", "Corte de luz", "Cloaca colapsada", "Zanja tapada", "Pérdida de agua", "Corte de agua"]
 CATS_AMARILLAS = ["Bache", "Vereda rota", "Luminaria con problemas", "Auto mal estacionado", "Falta rampa", "Poda mal hecha", "Problemas de tránsito", "Obra mal hecha", "Otros"]
 
-# Lista combinada en el orden que pediste para el desplegable
+# Lista combinada en el orden para el desplegable
 LISTA_CATEGORIAS = [
     "Bache", "Vereda rota", "Luminaria con problemas", "Poste en riesgo de caída",
     "Contenedor desbordado", "Pérdida de agua", "Hecho de inseguridad",
@@ -74,7 +74,7 @@ with st.sidebar:
         st.success("Modo Administrador Activo")
 
 # --- 4. CABECERA (LOGO, SLOGAN Y BOTÓN) ---
-col_izq, col_centro, col_der = st.columns([1, 25, 1])
+col_izq, col_centro, col_der = st.columns([1, 5, 1])
 with col_centro:
     try:
         st.image("logo_resi.png", use_container_width=True)
@@ -136,7 +136,7 @@ with c2:
     except:
         st.info("Video no encontrado en el repositorio.")
 
-# --- 7. MAPA PRINCIPAL CON SEMÁFORO DE GRAVEDAD ---
+# --- 7. MAPA PRINCIPAL CON SEMÁFORO DE GRAVEDAD ACTUALIZADO ---
 st.divider()
 st.write("### 🌎 Mapa de Realidad Distrital")
 m_p = folium.Map(location=[-34.4746, -58.5132], zoom_start=13)
@@ -148,19 +148,21 @@ try:
     if len(rows) > 1:
         for r in rows[1:]:
             try:
+                if len(r) < 11:
+                    continue
                 lt = float(str(r[9]).replace(',', '.'))
                 ln = float(str(r[10]).replace(',', '.'))
                 tag_rep = r[6]
                 
-                # Asignación de colores por gravedad
-                if tag_rep in CATS_NEGRAS:
-                    bg_color, text_color = "black", "white"
-                elif tag_rep in CATS_ROJAS:
-                    bg_color, text_color = "#dc3545", "white" # Rojo puro
+                # Nueva asignación de colores: Rojo, Naranja, Amarillo
+                if tag_rep in CATS_ROJAS:
+                    bg_color, text_color = "#dc3545", "white" # Rojo
+                elif tag_rep in CATS_NARANJAS:
+                    bg_color, text_color = "#fd7e14", "black" # Naranja
                 elif tag_rep in CATS_AMARILLAS:
-                    bg_color, text_color = "#ffc107", "black" # Amarillo fuerte para buen contraste
+                    bg_color, text_color = "#ffc107", "black" # Amarillo
                 else:
-                    bg_color, text_color = "#28a745", "white" # Verde por defecto si es categoría antigua
+                    bg_color, text_color = "#28a745", "white" # Verde por defecto
                 
                 pop = f"""<div style='width:200px; font-family:sans-serif;'>
                 <h4 style='color:{bg_color}; margin:0;'>{tag_rep}</h4>
@@ -173,7 +175,7 @@ try:
             except: continue
     st_folium(m_p, width="100%", height=500, key="mapa_final")
 
-    # --- 8. ESTADÍSTICAS ADMIN (CON DISCRIMINACIÓN DE COLOR) ---
+    # --- 8. ESTADÍSTICAS ADMIN (CON NUEVOS COLORES) ---
     if es_admin:
         st.divider()
         st.header("📊 Estadísticas de Gestión y Gravedad")
@@ -185,11 +187,10 @@ try:
         if 'Nombre' in df.columns: c2.metric("Aportantes Únicos", df['Nombre'].nunique())
         if 'Estado' in df.columns: c3.metric("Pendientes", len(df[df['Estado'] == 'Pendiente']))
 
-        # Mapeo de gravedad para el gráfico
         if 'Tag' in df.columns:
             def asignar_gravedad(tag):
-                if tag in CATS_NEGRAS: return "1. ⚫ Extrema (Negro)"
-                if tag in CATS_ROJAS: return "2. 🔴 Alta (Rojo)"
+                if tag in CATS_ROJAS: return "1. 🔴 Extrema (Rojo)"
+                if tag in CATS_NARANJAS: return "2. 🟠 Alta (Naranja)"
                 if tag in CATS_AMARILLAS: return "3. 🟡 Moderada (Amarillo)"
                 return "4. 🟢 Otros"
             
