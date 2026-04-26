@@ -8,9 +8,24 @@ from datetime import datetime
 import json
 import pandas as pd
 
-# --- 1. CONFIGURACIÓN ---
+# --- 1. CONFIGURACIÓN Y CONSTANTES ---
 SPREADSHEET_ID = '1fa8cD0HVD0lzoc5aWJzYSFuLJRpKwbsp3azF82hLReo'
 ADMIN_PASSWORD = 'resi_admin_2026'
+
+# Listas de categorías según gravedad
+CATS_NEGRAS = ["Poste en riesgo de caída", "Hecho de inseguridad", "Riesgo de derrumbe", "Árbol caído", "Abuso de autoridad", "Plagas", "Fuga de gas"]
+CATS_ROJAS = ["Contenedor desbordado", "Corte de luz", "Cloaca colapsada", "Zanja tapada", "Pérdida de agua", "Corte de agua"]
+CATS_AMARILLAS = ["Bache", "Vereda rota", "Luminaria con problemas", "Auto mal estacionado", "Falta rampa", "Poda mal hecha", "Problemas de tránsito", "Obra mal hecha", "Otros"]
+
+# Lista combinada en el orden que pediste para el desplegable
+LISTA_CATEGORIAS = [
+    "Bache", "Vereda rota", "Luminaria con problemas", "Poste en riesgo de caída",
+    "Contenedor desbordado", "Pérdida de agua", "Hecho de inseguridad",
+    "Riesgo de derrumbe", "Zanja tapada", "Árbol caído", "Auto mal estacionado",
+    "Falta rampa", "Poda mal hecha", "Abuso de autoridad", "Cloaca colapsada",
+    "Corte de luz", "Problemas de tránsito", "Obra mal hecha", "Plagas",
+    "Corte de agua", "Fuga de gas", "Otros"
+]
 
 st.set_page_config(page_title="ReSI - Realidad San Isidro", layout="centered")
 
@@ -59,8 +74,7 @@ with st.sidebar:
         st.success("Modo Administrador Activo")
 
 # --- 4. CABECERA (LOGO, SLOGAN Y BOTÓN) ---
-# Ampliamos la proporción de la columna central (de 3 a 5) para agrandar el logo y el botón
-col_izq, col_centro, col_der = st.columns([1, 25, 1])
+col_izq, col_centro, col_der = st.columns([1, 5, 1])
 with col_centro:
     try:
         st.image("logo_resi.png", use_container_width=True)
@@ -89,7 +103,7 @@ if st.session_state.mostrar_form:
         nombre = st.text_input("Nombre Completo (Obligatorio)")
         email = st.text_input("Email (Opcional)")
         tel = st.text_input("Teléfono (Opcional)")
-        tag = st.selectbox("Categoría (Obligatorio)", ["Bache", "Vereda rota", "Luminaria", "Basura", "Inseguridad", "Otro"])
+        tag = st.selectbox("Categoría (Obligatorio)", LISTA_CATEGORIAS)
         localidad = st.selectbox("Localidad (Obligatorio)", ["San Isidro", "Acassuso", "Beccar", "Boulogne", "Martínez", "Villa Adelina"])
         direccion_exacta = st.text_input("Dirección (Calle y altura - Obligatorio)")
         descripcion = st.text_area("Descripción adicional (Opcional)")
@@ -122,7 +136,7 @@ with c2:
     except:
         st.info("Video no encontrado en el repositorio.")
 
-# --- 7. MAPA PRINCIPAL ---
+# --- 7. MAPA PRINCIPAL CON SEMÁFORO DE GRAVEDAD ---
 st.divider()
 st.write("### 🌎 Mapa de Realidad Distrital")
 m_p = folium.Map(location=[-34.4746, -58.5132], zoom_start=13)
@@ -136,22 +150,34 @@ try:
             try:
                 lt = float(str(r[9]).replace(',', '.'))
                 ln = float(str(r[10]).replace(',', '.'))
+                tag_rep = r[6]
+                
+                # Asignación de colores por gravedad
+                if tag_rep in CATS_NEGRAS:
+                    bg_color, text_color = "black", "white"
+                elif tag_rep in CATS_ROJAS:
+                    bg_color, text_color = "#dc3545", "white" # Rojo puro
+                elif tag_rep in CATS_AMARILLAS:
+                    bg_color, text_color = "#ffc107", "black" # Amarillo fuerte para buen contraste
+                else:
+                    bg_color, text_color = "#28a745", "white" # Verde por defecto si es categoría antigua
+                
                 pop = f"""<div style='width:200px; font-family:sans-serif;'>
-                <h4 style='color:#28a745; margin:0;'>{r[6]}</h4>
+                <h4 style='color:{bg_color}; margin:0;'>{tag_rep}</h4>
                 <p style='font-size:12px; margin:5px 0;'><b>Ubicación:</b> {r[5]}</p>
                 <p style='font-size:11px; margin:2px 0;'><b>Fecha:</b> {r[0]}</p>
                 <img src='{r[8]}' style='width:100%; border-radius:5px;'></div>"""
-                icon = f'<div style="background-color:#28a745; color:white; border-radius:50%; width:35px; height:35px; display:flex; align-items:center; justify-content:center; font-weight:bold; border:2px solid white;">R</div>'
+                
+                icon = f'<div style="background-color:{bg_color}; color:{text_color}; border-radius:50%; width:35px; height:35px; display:flex; align-items:center; justify-content:center; font-weight:bold; border:2px solid {text_color}; box-shadow: 0px 2px 4px rgba(0,0,0,0.5);">R</div>'
                 folium.Marker([lt, ln], popup=folium.Popup(pop, max_width=250), icon=folium.DivIcon(html=icon)).add_to(m_p)
             except: continue
     st_folium(m_p, width="100%", height=500, key="mapa_final")
 
-    # --- 8. ESTADÍSTICAS ADMIN ---
+    # --- 8. ESTADÍSTICAS ADMIN (CON DISCRIMINACIÓN DE COLOR) ---
     if es_admin:
         st.divider()
-        st.header("📊 Estadísticas de Gestión")
+        st.header("📊 Estadísticas de Gestión y Gravedad")
         df = pd.DataFrame(rows[1:], columns=rows[0])
-        # Limpieza de nombres de columnas por si acaso
         df.columns = [c.strip() for c in df.columns]
         
         c1, c2, c3 = st.columns(3)
@@ -159,8 +185,21 @@ try:
         if 'Nombre' in df.columns: c2.metric("Aportantes Únicos", df['Nombre'].nunique())
         if 'Estado' in df.columns: c3.metric("Pendientes", len(df[df['Estado'] == 'Pendiente']))
 
-        st.subheader("Reportes por Categoría")
-        if 'Tag' in df.columns: st.bar_chart(df['Tag'].value_counts())
+        # Mapeo de gravedad para el gráfico
+        if 'Tag' in df.columns:
+            def asignar_gravedad(tag):
+                if tag in CATS_NEGRAS: return "1. ⚫ Extrema (Negro)"
+                if tag in CATS_ROJAS: return "2. 🔴 Alta (Rojo)"
+                if tag in CATS_AMARILLAS: return "3. 🟡 Moderada (Amarillo)"
+                return "4. 🟢 Otros"
+            
+            df['Gravedad'] = df['Tag'].apply(asignar_gravedad)
+            
+            st.subheader("Reportes discriminados por Gravedad (Color)")
+            st.bar_chart(df['Gravedad'].value_counts().sort_index())
+
+            st.subheader("Reportes por Categoría Específica")
+            st.bar_chart(df['Tag'].value_counts())
         
         st.subheader("Reportes por Localidad")
         if 'Localidad' in df.columns: st.bar_chart(df['Localidad'].value_counts())
