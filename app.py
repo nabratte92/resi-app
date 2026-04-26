@@ -13,12 +13,16 @@ import pandas as pd
 SPREADSHEET_ID = '1fa8cD0HVD0lzoc5aWJzYSFuLJRpKwbsp3azF82hLReo'
 ADMIN_PASSWORD = 'resi_admin_2026'
 
-# Gravedad por colores (Nueva escala solicitada)
+# Gravedad por colores 
 CATS_ROJAS = ["Poste en riesgo de caída", "Hecho de inseguridad", "Riesgo de derrumbe", "Árbol caído", "Abuso de autoridad", "Plagas", "Fuga de gas", "Microbasural clandestino"]
 CATS_NARANJAS = ["Contenedor desbordado", "Corte de luz", "Cloaca colapsada", "Zanja tapada", "Pérdida de agua", "Corte de agua", "Parada/Refugio vandalizado"]
 CATS_AMARILLAS = ["Bache", "Vereda rota", "Luminaria con problemas", "Auto mal estacionado", "Falta rampa", "Poda mal hecha", "Problemas de tránsito", "Obra mal hecha", "Mobiliario urbano dañado", "Otros"]
 
-LISTA_CATEGORIAS = sorted(CATS_ROJAS + CATS_NARANJAS + CATS_AMARILLAS)
+# Anclamos "Bache" al principio y "Otros" al final, ordenando el resto alfabéticamente
+todas_las_categorias = CATS_ROJAS + CATS_NARANJAS + CATS_AMARILLAS
+todas_las_categorias.remove("Bache")
+todas_las_categorias.remove("Otros")
+LISTA_CATEGORIAS = ["Bache"] + sorted(todas_las_categorias) + ["Otros"]
 
 st.set_page_config(page_title="ReSI - Realidad San Isidro", layout="centered")
 
@@ -87,7 +91,7 @@ with st.sidebar:
     es_admin = (pwd_input == ADMIN_PASSWORD)
 
 # --- 4. CABECERA, SLOGAN Y BOTÓN ---
-col_izq, col_centro, col_der = st.columns([1, 45, 1])
+col_izq, col_centro, col_der = st.columns([1, 35, 1])
 with col_centro:
     try: st.image("logo_resi.png", use_container_width=True)
     except: st.header("ReSI - Realidad San Isidro")
@@ -200,12 +204,12 @@ if st.session_state.mostrar_comunidad:
             try:
                 sheet_com = sh.worksheet("Comunidad")
                 sheet_com.append_row([c_nom, c_loc, c_fec, c_mail, c_tel, datetime.now().strftime("%d/%m/%Y %H:%M")])
-                st.success("¡Gracias por sumarte, Nico! Tus datos fueron registrados.")
+                st.success("¡Gracias por sumarte! Tus datos fueron registrados.")
                 st.session_state.mostrar_comunidad = False
             except:
                 st.error("Error: Asegurate de tener una pestaña llamada 'Comunidad' en tu Excel.")
 
-# --- 10. PANEL DE ADMINISTRADOR (ESTADÍSTICAS RESTAURADAS) ---
+# --- 10. PANEL DE ADMINISTRADOR (ESTADÍSTICAS) ---
 if es_admin:
     st.divider()
     st.header("📊 Tablero de Gestión ReSI")
