@@ -85,7 +85,7 @@ with st.sidebar:
     es_admin = (pwd_input == ADMIN_PASSWORD)
 
 # --- 4. CABECERA ---
-col_izq, col_centro, col_der = st.columns([1, 5, 1])
+col_izq, col_centro, col_der = st.columns([1, 35, 1])
 with col_centro:
     try: st.image("logo_resi.png", use_container_width=True)
     except: st.header("ReSI - Realidad San Isidro")
