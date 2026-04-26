@@ -34,16 +34,12 @@ def obtener_vista_previa(url):
         header = {"User-Agent": "Mozilla/5.0"}
         r = requests.get(url, headers=header, timeout=5)
         soup = BeautifulSoup(r.content, 'html.parser')
-        
         titulo = soup.find("meta", property="og:title")
         titulo = titulo["content"] if titulo else soup.title.string if soup.title else "Noticia / Publicación"
-        
         desc = soup.find("meta", property="og:description")
-        desc = desc["content"][:150] + "..." if desc else "Hacé clic para ver más detalles en la fuente original."
-        
+        desc = desc["content"][:150] + "..." if desc else "Hacé clic para ver más detalles."
         img = soup.find("meta", property="og:image")
         img_url = img["content"] if img else None
-        
         return titulo, desc, img_url
     except:
         return None, None, None
@@ -69,10 +65,6 @@ st.markdown("""
         padding: 15px; border-radius: 10px; margin-bottom: 20px;
         box-shadow: 0px 2px 5px rgba(0,0,0,0.05);
     }
-    .link-card {
-        border: 1px solid #eee; border-radius: 8px; overflow: hidden;
-        margin-top: 10px; background: #fafafa; text-decoration: none; color: black !important;
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -84,16 +76,16 @@ try:
     creds = Credentials.from_service_account_info(json.loads(st.secrets["GCP_CREDS"]), scopes=['https://www.googleapis.com/auth/spreadsheets'])
     sh = gspread.authorize(creds).open_by_key(SPREADSHEET_ID)
 except:
-    st.error("Error de conexión.")
+    st.error("Error de conexión con la base de datos.")
 
-# --- BARRA LATERAL ---
+# --- 3. BARRA LATERAL ---
 with st.sidebar:
     st.title("🛠️ Gestión ReSI")
     pwd_input = st.text_input("Acceso Administrador", type="password")
     es_admin = (pwd_input == ADMIN_PASSWORD)
 
 # --- 4. CABECERA ---
-col_izq, col_centro, col_der = st.columns([1, 35, 1])
+col_izq, col_centro, col_der = st.columns([1, 5, 1])
 with col_centro:
     try: st.image("logo_resi.png", use_container_width=True)
     except: st.header("ReSI - Realidad San Isidro")
@@ -121,25 +113,29 @@ if st.session_state.mostrar_form:
         foto = st.file_uploader("Subir Foto", type=["jpg", "png", "jpeg"])
         if st.form_submit_button("ENVIAR REPORTE"):
             if not foto or not nombre or not localidad or not direccion_exacta:
-                st.error("Faltan datos.")
+                st.error("Faltan datos obligatorios.")
             else:
                 res = requests.post(f"https://api.imgbb.com/1/upload?key={st.secrets['IMGBB_API_KEY']}", files={"image": foto.getvalue()})
                 url_foto = res.json()["data"]["url"]
-                sh.sheet1.append_row([datetime.now().strftime("%d/%m/%Y %H:%M"), nombre, "N/A", "N/A", localidad, direccion_exacta, tag, descripcion, url_foto, str(st.session_state.lat_sel).replace('.', ','), str(st.session_state.lon_sel).replace('.', ','), "Pendiente"])
-                st.success("✅ ¡Enviado!")
+                # Guardamos coordenadas con coma para el Sheets regional
+                lat_s = str(st.session_state.lat_sel).replace('.', ',')
+                lon_s = str(st.session_state.lon_sel).replace('.', ',')
+                sh.sheet1.append_row([datetime.now().strftime("%d/%m/%Y %H:%M"), nombre, "N/A", "N/A", localidad, direccion_exacta, tag, descripcion, url_foto, lat_s, lon_s, "Pendiente"])
+                st.success("✅ ¡Reporte enviado!")
                 st.session_state.mostrar_form = False
                 st.rerun()
 
-# --- 6. VIDEO ---
+# --- 6. VIDEO TUTORIAL ---
 st.divider()
+st.write("### 🎥 Tutorial:")
 c1, c2, c3 = st.columns([1, 1.8, 1])
 with c2: 
-    try: st.video("tutorial.mp4")
+    try: st.video("tutorial.mp4", autoplay=True)
     except: pass
 
-# --- 7. MAPA PRINCIPAL (AHORA ARRIBA DE NOVEDADES) ---
+# --- 7. MAPA DE REPORTES ---
 st.divider()
-st.write("### 🌎 Mapa de Realidad Distrital")
+st.write("### 🌎 Mapa de Reportes")
 m_p = folium.Map(location=[-34.4746, -58.5132], zoom_start=13)
 try:
     rows = sh.sheet1.get_all_values()
@@ -158,7 +154,7 @@ try:
     st_folium(m_p, width="100%", height=500, key="mapa_final")
 except: pass
 
-# --- 8. NOVEDADES DE GESTIÓN (AHORA ABAJO DEL MAPA CON LINKS INTELIGENTES) ---
+# --- 8. NOVEDADES Y SOLUCIONES ---
 st.divider()
 st.write("### 📰 Novedades y Soluciones")
 try:
@@ -168,45 +164,75 @@ try:
         for nov in reversed(novedades_data[1:]):
             fecha, titulo, contenido = nov[0], nov[1], nov[2]
             st.markdown(f"**{titulo}** — *{fecha}*")
-            
-            # Detectar si es un link
             if contenido.startswith("http"):
                 t, d, i = obtener_vista_previa(contenido)
                 if t:
-                    with st.container():
-                        st.markdown(f"""
-                        <a href="{contenido}" target="_blank" style="text-decoration: none;">
-                            <div style="border: 1px solid #ddd; border-radius: 10px; overflow: hidden; background: #fff;">
-                                {"<img src='"+i+"' style='width:100%; height:200px; object-fit:cover;'>" if i else ""}
-                                <div style="padding: 10px;">
-                                    <h5 style="margin:0; color:#28a745;">{t}</h5>
-                                    <p style="font-size:13px; color:#555; margin:5px 0;">{d}</p>
-                                    <small style="color:blue;">Ver publicación original ↗</small>
-                                </div>
+                    st.markdown(f"""
+                    <a href="{contenido}" target="_blank" style="text-decoration: none; color: black;">
+                        <div style="border: 1px solid #ddd; border-radius: 10px; overflow: hidden; background: #fff; margin-bottom: 20px;">
+                            {"<img src='"+i+"' style='width:100%; height:180px; object-fit:cover;'>" if i else ""}
+                            <div style="padding: 10px;">
+                                <h5 style="margin:0; color:#28a745;">{t}</h5>
+                                <p style="font-size:13px; color:#555; margin:5px 0;">{d}</p>
                             </div>
-                        </a>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.link_button("Ver publicación externa", contenido)
-            else:
-                st.info(contenido)
-            st.write("")
-except: st.info("Próximamente novedades.")
+                        </div>
+                    </a>
+                    """, unsafe_allow_html=True)
+                else: st.link_button("Ver publicación", contenido)
+            else: st.info(contenido)
+except: st.info("Cargando novedades...")
 
-# --- 9. PANEL DE CONTROL (ADMIN) ---
+# --- 9. PANEL DE ADMINISTRADOR (MÉTRICAS COMPLETAS + EDITOR) ---
 if es_admin:
     st.divider()
-    st.header("📊 Panel de Gestión")
-    df = pd.DataFrame(rows[1:], columns=rows[0])
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Total", len(df))
-    c2.metric("Vecinos", df['Nombre'].nunique())
+    st.header("📊 Tablero de Gestión ReSI")
     
-    st.subheader("📝 Publicar Novedad Inteligente")
-    with st.form("form_nov"):
-        t_n = st.text_input("Título")
-        c_n = st.text_area("Contenido (Texto o Link de Instagram/Noticia)")
-        if st.form_submit_button("Publicar"):
-            sh.worksheet("Novedades").append_row([datetime.now().strftime("%d/%m/%Y %H:%M"), t_n, c_n])
-            st.success("¡Publicado!")
-            st.rerun()
+    # Procesamiento de Datos para Estadísticas
+    df = pd.DataFrame(rows[1:], columns=rows[0])
+    df.columns = [c.strip() for c in df.columns]
+    
+    # Métricas Principales
+    c1, c2, c3 = st.columns(3)
+    c1.metric("📌 Total Reportes", len(df))
+    if 'Nombre' in df.columns:
+        c2.metric("👥 Vecinos Participando", df['Nombre'].nunique())
+    if 'Estado' in df.columns:
+        c3.metric("⏳ Pendientes", len(df[df['Estado'] == 'Pendiente']))
+    
+    # Distribución por Categoría y Localidad
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.subheader("Por Categoría")
+        if 'Tag' in df.columns: st.bar_chart(df['Tag'].value_counts())
+    with col_b:
+        st.subheader("Por Localidad")
+        if 'Localidad' in df.columns: st.bar_chart(df['Localidad'].value_counts())
+
+    # Gravedad por Color
+    st.subheader("Distribución por Gravedad")
+    def asignar_color(t):
+        if t in CATS_ROJAS: return "1. 🔴 Crítico"
+        if t in CATS_NARANJAS: return "2. 🟠 Alto"
+        if t in CATS_AMARILLAS: return "3. 🟡 Moderado"
+        return "4. 🟢 Otros"
+    df['Gravedad'] = df['Tag'].apply(asignar_color)
+    st.bar_chart(df['Gravedad'].value_counts().sort_index())
+
+    # Evolución Temporal
+    st.subheader("Evolución de Reportes por Mes")
+    if 'Fecha' in df.columns:
+        df['dt'] = pd.to_datetime(df['Fecha'], format='%d/%m/%Y %H:%M', errors='coerce')
+        mes_anio = df['dt'].dt.to_period('M').astype(str)
+        st.line_chart(mes_anio.value_counts().sort_index())
+
+    # Editor de Novedades
+    st.divider()
+    st.subheader("📝 Publicar Novedad / Link de Instagram")
+    with st.form("form_nov_v27"):
+        t_n = st.text_input("Título de la noticia")
+        c_n = st.text_area("Contenido o Link (Instagram, Diarios, etc.)")
+        if st.form_submit_button("Publicar ahora"):
+            if t_n and c_n:
+                sh.worksheet("Novedades").append_row([datetime.now().strftime("%d/%m/%Y %H:%M"), t_n, c_n])
+                st.success("¡Noticia publicada!")
+                st.rerun()
