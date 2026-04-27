@@ -161,9 +161,9 @@ try:
     st_folium(m_p, width="100%", height=500, key="mapa_final")
 except: pass
 
-# --- 8. NOVEDADES Y SOLUCIONES ---
+# --- 8. NOVEDADES ---
 st.divider()
-st.write("### 📰 Novedades y Soluciones")
+st.write("### 📰 Novedades")
 try:
     sheet_nov = sh.worksheet("Novedades")
     nov_data = sheet_nov.get_all_values()
