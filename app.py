@@ -95,7 +95,7 @@ col_izq, col_centro, col_der = st.columns([1, 35, 1])
 with col_centro:
     try: st.image("logo_resi.png", use_container_width=True)
     except: st.header("ReSI - Realidad San Isidro")
-    st.markdown('<p class="slogan">Una herramienta para que el intendente y sus funcionarios se ubiquen en el mapa</p>', unsafe_allow_html=True)
+    st.markdown('<p class="slogan">UNA HERRAMIENTA PARA QUE EL INTENDENTE Y SUS FUNCIONARIOS SE UBIQUEN EN EL MAPA</p>', unsafe_allow_html=True)
     
     if st.button("🚨 INICIAR REPORTE", use_container_width=True):
         st.session_state.mostrar_form = True
