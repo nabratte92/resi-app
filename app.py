@@ -174,7 +174,8 @@ try:
             if contenido.startswith("http"):
                 t, d, i = obtener_vista_previa(contenido)
                 if t:
-                    st.markdown(f'<a href="{contenido}" target="_blank" style="text-decoration: none; color: black;"><div style="border: 1px solid #ddd; border-radius: 10px; overflow: hidden; background: #fff; margin-bottom: 20px;">' + (f"<img src='{i}' style='width:100%; height:180px; object-fit:cover;'>" if i else "") + f'<div style="padding: 10px;"><h5 style="margin:0; color:#28a745;">{t}</h5><p style="font-size:13px; color:#555; margin:5px 0;">{d}</p></div></div></a>', unsafe_allow_html=True)
+                    # ACÁ ESTÁ EL CAMBIO DE LA FOTO: height: auto; display: block;
+                    st.markdown(f'<a href="{contenido}" target="_blank" style="text-decoration: none; color: black;"><div style="border: 1px solid #ddd; border-radius: 10px; overflow: hidden; background: #fff; margin-bottom: 20px;">' + (f"<img src='{i}' style='width:100%; height:auto; display:block;'>" if i else "") + f'<div style="padding: 10px;"><h5 style="margin:0; color:#28a745;">{t}</h5><p style="font-size:13px; color:#555; margin:5px 0;">{d}</p></div></div></a>', unsafe_allow_html=True)
                 else: st.link_button("Ver publicación", contenido)
             else: st.info(contenido)
 except: pass
