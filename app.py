@@ -188,12 +188,40 @@ try:
             else: st.info(nov['contenido'])
 except: pass
 
-# --- 11. COMUNIDAD ReSI (Actualizado con tu nueva imagen de GitHub) ---
+# --- 11. COMUNIDAD ---
 st.markdown(f"""
     <div style="text-align: center; margin-top: 40px; margin-bottom: 20px;">
         <img src="{IMG_COMUNIDAD}" style="max-width: 100%; height: auto; border-radius: 15px;" alt="Comunidad ReSI">
     </div>
 """, unsafe_allow_html=True)
+
+c_com, c_btn, c_com2 = st.columns([1, 1.5, 1])
+with c_btn:
+    if st.button("SUSCRIBIRME", use_container_width=True):
+        st.session_state.mostrar_comunidad = not st.session_state.mostrar_comunidad
+
+if st.session_state.mostrar_comunidad:
+    with st.form("form_comunidad", clear_on_submit=True):
+        c_nom = st.text_input("Nombre")
+        c_loc = st.selectbox("Localidad", ["San Isidro", "Acassuso", "Beccar", "Boulogne", "Martínez", "Villa Adelina"])
+        c_fec = st.text_input("Fecha de Nacimiento (DD/MM/AAAA)")
+        c_mail = st.text_input("Email")
+        c_tel = st.text_input("Teléfono")
+        if st.form_submit_button("UNIRME A LA COMUNIDAD"):
+            try:
+                supabase.table("comunidad").insert({
+                    "nombre": c_nom, 
+                    "localidad": c_loc, 
+                    "fecha_nacimiento": c_fec, 
+                    "email": c_mail, 
+                    "telefono": c_tel, 
+                    "fecha_suscripcion": datetime.now().strftime("%d/%m/%Y %H:%M")
+                }).execute()
+                st.success("¡Gracias por sumarte!")
+                st.session_state.mostrar_comunidad = False
+                st.rerun()
+            except: 
+                st.error("Error al suscribirse.")
 
 if st.session_state.mostrar_comunidad:
     with st.form("form_comunidad", clear_on_submit=True):
