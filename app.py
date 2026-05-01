@@ -12,13 +12,13 @@ import streamlit.components.v1 as components
 USUARIO_GH = "nabratte92" 
 REPO_GH = "resi-app"
 
-# URLs de recursos para el juego
+# URLs de recursos
 URL_BASE = f"https://raw.githubusercontent.com/{USUARIO_GH}/{REPO_GH}/main"
 IMG_LOGO_WALLY = f"{URL_BASE}/Logo%20buscando%20ramon.png"
 IMG_MAPA_WALLY = f"{URL_BASE}/Mapa%20buscando%20ramon.png"
 IMG_AVATAR = f"{URL_BASE}/Avatar%20buscando%20ramon.png"
 AUDIO_RISA = f"{URL_BASE}/Risa%20buscando%20ramon.mp3"
-IMG_COMUNIDAD = f"{URL_BASE}/Comunidad%20resi.png" # Se agregó %20 para manejar el espacio en el nombre
+IMG_COMUNIDAD = f"{URL_BASE}/Comunidad%20resi.png"
 
 # --- 2. CONEXIÓN A SUPABASE ---
 SUPABASE_URL = 'https://iknwswwouxledkavyrwf.supabase.co'
@@ -73,7 +73,6 @@ st.markdown("""
     header {visibility: hidden;} footer {visibility: hidden;}
     .slogan { text-align: center; font-size: 19px; font-style: italic; color: #444; margin-top: -15px; margin-bottom: 10px; }
     .synthetic-list { text-align: center; font-size: 14px; color: #666; margin-bottom: 25px; }
-    .comunidad-box { text-align: center; background-color: #e9ecef; padding: 30px; border-radius: 15px; margin-top: 40px; border: 2px dashed #28a745; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -89,7 +88,7 @@ with st.sidebar:
     es_admin = (pwd_input == ADMIN_PASSWORD)
 
 # --- 6. CABECERA Y BOTÓN ---
-col_izq, col_centro, col_der = st.columns([1, 45, 1])
+col_izq, col_centro, col_der = st.columns([1, 65, 1])
 with col_centro:
     try: st.image("logo_resi.png", use_container_width=True)
     except: st.header("ReSI - Realidad San Isidro")
@@ -223,25 +222,9 @@ if st.session_state.mostrar_comunidad:
             except: 
                 st.error("Error al suscribirse.")
 
-if st.session_state.mostrar_comunidad:
-    with st.form("form_comunidad", clear_on_submit=True):
-        c_nom = st.text_input("Nombre")
-        c_loc = st.selectbox("Localidad", ["San Isidro", "Acassuso", "Beccar", "Boulogne", "Martínez", "Villa Adelina"])
-        c_fec = st.text_input("Fecha de Nacimiento (DD/MM/AAAA)")
-        c_mail = st.text_input("Email")
-        c_tel = st.text_input("Teléfono")
-        if st.form_submit_button("UNIRME A LA COMUNIDAD"):
-            try:
-                supabase.table("comunidad").insert({"nombre": c_nom, "localidad": c_loc, "fecha_nacimiento": c_fec, "email": c_mail, "telefono": c_tel, "fecha_suscripcion": datetime.now().strftime("%d/%m/%Y %H:%M")}).execute()
-                st.success("¡Gracias por sumarte!")
-                st.session_state.mostrar_comunidad = False
-                st.rerun()
-            except: st.error("Error al suscribirse.")
-
 # --- 12. BUSCANDO A RAMÓN ---
 st.divider()
 
-# ACÁ AGREGAMOS EL TÍTULO QUE PEDISTE
 st.write("### Busquemos a Ramón, si lo encontrás clickeá sobre él para ver qué hace: ¿Se pondrá a trabajar?")
 
 codigo_minijuego = f"""
