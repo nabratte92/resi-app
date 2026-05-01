@@ -40,7 +40,7 @@ todas_las_categorias.remove("Bache")
 todas_las_categorias.remove("Otros")
 LISTA_CATEGORIAS = ["Bache"] + sorted(todas_las_categorias) + ["Otros"]
 
-st.set_page_config(page_title="ReSI - Realidad San Isidro", layout="centered")
+st.set_page_config(page_title="ReSI - Rescatemos San Isidro", page_icon="📍", layout="centered")
 
 # --- FUNCIÓN VISTA PREVIA ---
 def obtener_vista_previa(url):
