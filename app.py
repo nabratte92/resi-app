@@ -9,8 +9,8 @@ from supabase import create_client, Client
 import streamlit.components.v1 as components
 
 # --- 1. CONFIGURACIÓN GITHUB (COMPLETÁ ESTO PARA EL JUEGO) ---
-USUARIO_GH = "TU_USUARIO_GITHUB" 
-REPO_GH = "TU_NOMBRE_REPO"
+USUARIO_GH = "nabratte92" 
+REPO_GH = "resi-app"
 
 # URLs con codificación para espacios (%20)
 URL_BASE = f"https://raw.githubusercontent.com/{USUARIO_GH}/{REPO_GH}/main"
@@ -96,7 +96,7 @@ with st.sidebar:
     es_admin = (pwd_input == ADMIN_PASSWORD)
 
 # --- 6. CABECERA, SLOGAN Y BOTÓN ---
-col_izq, col_centro, col_der = st.columns([1, 5, 1])
+col_izq, col_centro, col_der = st.columns([1, 55, 1])
 with col_centro:
     try: st.image("logo_resi.png", use_container_width=True)
     except: st.header("ReSI - Realidad San Isidro")
