@@ -88,7 +88,7 @@ with st.sidebar:
     es_admin = (pwd_input == ADMIN_PASSWORD)
 
 # --- 6. CABECERA Y BOTÓN ---
-col_izq, col_centro, col_der = st.columns([1, 35, 1])
+col_izq, col_centro, col_der = st.columns([1, 45, 1])
 with col_centro:
     try: st.image("logo_resi.png", use_container_width=True)
     except: st.header("ReSI - Realidad San Isidro")
@@ -97,7 +97,7 @@ with col_centro:
         st.session_state.mostrar_form = True
     st.markdown('<p class="synthetic-list">Baches, veredas, luminarias, seguridad, higiene, arbolado y tránsito.</p>', unsafe_allow_html=True)
 
-# --- 7. FORMULARIO DE REPORTE (CON CAMPOS RECUPERADOS) ---
+# --- 7. FORMULARIO DE REPORTE ---
 if st.session_state.mostrar_form:
     st.markdown("---")
     st.write("### 📍 Ubicación exacta")
@@ -111,8 +111,8 @@ if st.session_state.mostrar_form:
 
     with st.form("form_reporte", clear_on_submit=True):
         nombre = st.text_input("Nombre Completo (Obligatorio)")
-        email_rep = st.text_input("Email (Opcional)") # RECUPERADO
-        tel_rep = st.text_input("Teléfono (Opcional)") # RECUPERADO
+        email_rep = st.text_input("Email (Opcional)")
+        tel_rep = st.text_input("Teléfono (Opcional)")
         tag = st.selectbox("Categoría (Obligatorio)", LISTA_CATEGORIAS)
         localidad = st.selectbox("Localidad", ["San Isidro", "Acassuso", "Beccar", "Boulogne", "Martínez", "Villa Adelina"])
         direccion = st.text_input("Dirección (Calle y altura)")
@@ -198,17 +198,23 @@ if st.session_state.mostrar_comunidad:
     with st.form("form_comunidad", clear_on_submit=True):
         c_nom = st.text_input("Nombre")
         c_loc = st.selectbox("Localidad", ["San Isidro", "Acassuso", "Beccar", "Boulogne", "Martínez", "Villa Adelina"])
+        c_fec = st.text_input("Fecha de Nacimiento (DD/MM/AAAA)")
         c_mail = st.text_input("Email")
-        if st.form_submit_button("UNIRME"):
+        c_tel = st.text_input("Teléfono")
+        if st.form_submit_button("UNIRME A LA COMUNIDAD"):
             try:
-                supabase.table("comunidad").insert({"nombre": c_nom, "localidad": c_loc, "email": c_mail, "fecha_suscripcion": datetime.now().strftime("%d/%m/%Y %H:%M")}).execute()
-                st.success("¡Gracias!")
+                supabase.table("comunidad").insert({"nombre": c_nom, "localidad": c_loc, "fecha_nacimiento": c_fec, "email": c_mail, "telefono": c_tel, "fecha_suscripcion": datetime.now().strftime("%d/%m/%Y %H:%M")}).execute()
+                st.success("¡Gracias por sumarte!")
                 st.session_state.mostrar_comunidad = False
                 st.rerun()
-            except: st.error("Error.")
+            except: st.error("Error al suscribirse.")
 
-# --- 12. BUSCANDO A RAMÓN (CORREGIDO SIN FONDO BLANCO) ---
+# --- 12. BUSCANDO A RAMÓN ---
 st.divider()
+
+# ACÁ AGREGAMOS EL TÍTULO QUE PEDISTE
+st.write("### Busquemos a Ramón, si lo encontrás clickeá sobre él para ver qué hace: ¿Se pondrá a trabajar?")
+
 codigo_minijuego = f"""
 <!DOCTYPE html>
 <html>
@@ -256,11 +262,36 @@ if es_admin:
     st.header("📊 Tablero de Gestión")
     if reportes_data:
         df = pd.DataFrame(reportes_data)
-        st.metric("📌 Total", len(df))
-        st.bar_chart(df['tag'].value_counts())
+        c1, c2, c3 = st.columns(3)
+        c1.metric("📌 Total Reportes", len(df))
+        if 'nombre' in df.columns: c2.metric("👥 Vecinos", df['nombre'].nunique())
+        if 'estado' in df.columns: c3.metric("⏳ Pendientes", len(df[df['estado'] == 'Pendiente']))
+        
+        col_a, col_b = st.columns(2)
+        with col_a: 
+            st.subheader("Categorías")
+            if 'tag' in df.columns: st.bar_chart(df['tag'].value_counts())
+        with col_b: 
+            st.subheader("Localidades")
+            if 'localidad' in df.columns: st.bar_chart(df['localidad'].value_counts())
+            
+        st.subheader("Gravedad por Color")
+        def asignar_color_est(t):
+            if t in CATS_ROJAS: return "1. 🔴 Crítico"
+            if t in CATS_NARANJAS: return "2. 🟠 Alto"
+            if t in CATS_AMARILLAS: return "3. 🟡 Moderado"
+            return "4. 🟢 Otros"
+        if 'tag' in df.columns:
+            df['Gravedad'] = df['tag'].apply(asignar_color_est)
+            st.bar_chart(df['Gravedad'].value_counts().sort_index())
+            
+    st.subheader("📝 Publicar Novedad")
     with st.form("form_nov"):
         t_n = st.text_input("Título")
         c_n = st.text_area("Contenido/Link")
         if st.form_submit_button("Publicar"):
-            supabase.table("novedades").insert({"fecha": datetime.now().strftime("%d/%m/%Y %H:%M"), "titulo": t_n, "contenido": c_n}).execute()
-            st.rerun()
+            try:
+                supabase.table("novedades").insert({"fecha": datetime.now().strftime("%d/%m/%Y %H:%M"), "titulo": t_n, "contenido": c_n}).execute()
+                st.success("Publicado")
+                st.rerun()
+            except: st.error("Error")
