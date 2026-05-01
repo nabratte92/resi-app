@@ -9,8 +9,8 @@ from supabase import create_client, Client
 import streamlit.components.v1 as components
 
 # --- 1. CONFIGURACIÓN GITHUB (COMPLETÁ ESTO PARA EL JUEGO) ---
-USUARIO_GH = "nabratte92" 
-REPO_GH = "resi-app"
+USUARIO_GH = "TU_USUARIO_GITHUB" 
+REPO_GH = "TU_NOMBRE_REPO"
 
 # URLs con codificación para espacios (%20)
 URL_BASE = f"https://raw.githubusercontent.com/{USUARIO_GH}/{REPO_GH}/main"
@@ -96,7 +96,7 @@ with st.sidebar:
     es_admin = (pwd_input == ADMIN_PASSWORD)
 
 # --- 6. CABECERA, SLOGAN Y BOTÓN ---
-col_izq, col_centro, col_der = st.columns([1, 35, 1])
+col_izq, col_centro, col_der = st.columns([1, 5, 1])
 with col_centro:
     try: st.image("logo_resi.png", use_container_width=True)
     except: st.header("ReSI - Realidad San Isidro")
@@ -253,7 +253,9 @@ codigo_minijuego = f"""
         var audio = document.getElementById("sonido-risa");
         audio.play();
         var avatar = document.getElementById("ramon-avatar");
-        avatar.style.width = "60px";
+        // ACÁ ESTÁ LA MODIFICACIÓN AL TRIPLE DE TAMAÑO (DE 60px a 180px)
+        avatar.style.width = "180px";
+        avatar.style.zIndex = "100";
         avatar.style.filter = "brightness(1.2)";
         avatar.style.transition = "all 0.3s ease";
     }}
