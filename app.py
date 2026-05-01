@@ -8,11 +8,11 @@ import pandas as pd
 from supabase import create_client, Client
 import streamlit.components.v1 as components
 
-# --- 1. CONFIGURACIÓN GITHUB (COMPLETÁ ESTO PARA EL JUEGO) ---
+# --- 1. CONFIGURACIÓN GITHUB (COMPLETÁ CON TUS DATOS) ---
 USUARIO_GH = "nabratte92" 
 REPO_GH = "resi-app"
 
-# URLs con codificación para espacios (%20)
+# URLs de recursos para el juego
 URL_BASE = f"https://raw.githubusercontent.com/{USUARIO_GH}/{REPO_GH}/main"
 IMG_LOGO_WALLY = f"{URL_BASE}/Logo%20buscando%20ramon.png"
 IMG_MAPA_WALLY = f"{URL_BASE}/Mapa%20buscando%20ramon.png"
@@ -42,14 +42,14 @@ LISTA_CATEGORIAS = ["Bache"] + sorted(todas_las_categorias) + ["Otros"]
 
 st.set_page_config(page_title="ReSI - Realidad San Isidro", layout="centered")
 
-# --- FUNCIÓN PARA VISTA PREVIA DE LINKS ---
+# --- FUNCIÓN VISTA PREVIA ---
 def obtener_vista_previa(url):
     try:
         header = {"User-Agent": "Mozilla/5.0"}
         r = requests.get(url, headers=header, timeout=5)
         soup = BeautifulSoup(r.content, 'html.parser')
         titulo = soup.find("meta", property="og:title")
-        titulo = titulo["content"] if titulo else soup.title.string if soup.title else "Noticia / Publicación"
+        titulo = titulo["content"] if titulo else soup.title.string if soup.title else "Noticia"
         desc = soup.find("meta", property="og:description")
         desc = desc["content"][:150] + "..." if desc else "Hacé clic para ver más."
         img = soup.find("meta", property="og:image")
@@ -70,17 +70,9 @@ st.markdown("""
         display: block; margin: 0 auto;
     }
     header {visibility: hidden;} footer {visibility: hidden;}
-    .slogan {
-        text-align: center; font-size: 19px; font-style: italic;
-        color: #444; margin-top: -15px; margin-bottom: 10px;
-    }
-    .synthetic-list {
-        text-align: center; font-size: 14px; color: #666; margin-bottom: 25px;
-    }
-    .comunidad-box {
-        text-align: center; background-color: #e9ecef; padding: 30px; 
-        border-radius: 15px; margin-top: 40px; border: 2px dashed #28a745;
-    }
+    .slogan { text-align: center; font-size: 19px; font-style: italic; color: #444; margin-top: -15px; margin-bottom: 10px; }
+    .synthetic-list { text-align: center; font-size: 14px; color: #666; margin-bottom: 25px; }
+    .comunidad-box { text-align: center; background-color: #e9ecef; padding: 30px; border-radius: 15px; margin-top: 40px; border: 2px dashed #28a745; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -95,19 +87,17 @@ with st.sidebar:
     pwd_input = st.text_input("Acceso Administrador", type="password")
     es_admin = (pwd_input == ADMIN_PASSWORD)
 
-# --- 6. CABECERA, SLOGAN Y BOTÓN ---
+# --- 6. CABECERA Y BOTÓN ---
 col_izq, col_centro, col_der = st.columns([1, 35, 1])
 with col_centro:
     try: st.image("logo_resi.png", use_container_width=True)
     except: st.header("ReSI - Realidad San Isidro")
     st.markdown('<p class="slogan">Una herramienta para que el intendente y sus funcionarios se ubiquen en el mapa</p>', unsafe_allow_html=True)
-    
     if st.button("🚨 INICIAR REPORTE", use_container_width=True):
         st.session_state.mostrar_form = True
-    
-    st.markdown('<p class="synthetic-list">Podés reportar problemas de: baches, veredas, luminarias, seguridad, higiene urbana, arbolado, tránsito y accesibilidad.</p>', unsafe_allow_html=True)
+    st.markdown('<p class="synthetic-list">Baches, veredas, luminarias, seguridad, higiene, arbolado y tránsito.</p>', unsafe_allow_html=True)
 
-# --- 7. FORMULARIO DE REPORTE ---
+# --- 7. FORMULARIO DE REPORTE (CON CAMPOS RECUPERADOS) ---
 if st.session_state.mostrar_form:
     st.markdown("---")
     st.write("### 📍 Ubicación exacta")
@@ -121,6 +111,8 @@ if st.session_state.mostrar_form:
 
     with st.form("form_reporte", clear_on_submit=True):
         nombre = st.text_input("Nombre Completo (Obligatorio)")
+        email_rep = st.text_input("Email (Opcional)") # RECUPERADO
+        tel_rep = st.text_input("Teléfono (Opcional)") # RECUPERADO
         tag = st.selectbox("Categoría (Obligatorio)", LISTA_CATEGORIAS)
         localidad = st.selectbox("Localidad", ["San Isidro", "Acassuso", "Beccar", "Boulogne", "Martínez", "Villa Adelina"])
         direccion = st.text_input("Dirección (Calle y altura)")
@@ -138,7 +130,7 @@ if st.session_state.mostrar_form:
                     
                     nuevo_reporte = {
                         "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                        "nombre": nombre, "email": "N/A", "tel": "N/A",
+                        "nombre": nombre, "email": email_rep, "tel": tel_rep,
                         "localidad": localidad, "direccion_exacta": direccion,
                         "tag": tag, "descripcion": descripcion, "url_foto": url_foto,
                         "lat": lat_s, "lon": lon_s, "estado": "Pendiente"
@@ -157,16 +149,15 @@ with c2:
     try: st.video("tutorial.mp4")
     except: pass
 
-# Obtención de datos Supabase
+# --- 9. MAPA DE REPORTES ---
+st.divider()
+st.write("### 🌎 Mapa de Reportes")
 reportes_data = []
 try:
     res_reportes = supabase.table("reportes").select("*").execute()
     reportes_data = res_reportes.data
 except: pass
 
-# --- 9. MAPA DE REPORTES ---
-st.divider()
-st.write("### 🌎 Mapa de Reportes")
 m_p = folium.Map(location=[-34.4746, -58.5132], zoom_start=13)
 if reportes_data:
     for r in reportes_data:
@@ -180,31 +171,24 @@ if reportes_data:
         except: continue
 st_folium(m_p, width="100%", height=500, key="mapa_final")
 
-# --- 10. NOVEDADES Y SOLUCIONES ---
+# --- 10. NOVEDADES ---
 st.divider()
 st.write("### 📰 Novedades y Soluciones")
 try:
     res_nov = supabase.table("novedades").select("*").order("id", desc=True).execute()
     if res_nov.data:
         for nov in res_nov.data:
-            fecha, titulo, contenido = nov['fecha'], nov['titulo'], nov['contenido']
-            st.markdown(f"**{titulo}** — *{fecha}*")
-            if contenido.startswith("http"):
-                t, d, i = obtener_vista_previa(contenido)
+            st.markdown(f"**{nov['titulo']}** — *{nov['fecha']}*")
+            if nov['contenido'].startswith("http"):
+                t, d, i = obtener_vista_previa(nov['contenido'])
                 if t:
-                    st.markdown(f'<a href="{contenido}" target="_blank" style="text-decoration: none; color: black;"><div style="border: 1px solid #ddd; border-radius: 10px; overflow: hidden; background: #fff; margin-bottom: 20px;">' + (f"<img src='{i}' style='width:100%; height:auto; display:block;'>" if i else "") + f'<div style="padding: 10px;"><h5 style="margin:0; color:#28a745;">{t}</h5><p style="font-size:13px; color:#555; margin:5px 0;">{d}</p></div></div></a>', unsafe_allow_html=True)
-                else: st.link_button("Ver publicación", contenido)
-            else: st.info(contenido)
+                    st.markdown(f'<a href="{nov["contenido"]}" target="_blank" style="text-decoration: none; color: black;"><div style="border: 1px solid #ddd; border-radius: 10px; overflow: hidden; background: #fff; margin-bottom: 20px;">' + (f"<img src='{i}' style='width:100%; height:auto; display:block;'>" if i else "") + f'<div style="padding: 10px;"><h5 style="margin:0; color:#28a745;">{t}</h5><p style="font-size:13px; color:#555; margin:5px 0;">{d}</p></div></div></a>', unsafe_allow_html=True)
+                else: st.link_button("Ver publicación", nov['contenido'])
+            else: st.info(nov['contenido'])
 except: pass
 
-# --- 11. SECCIÓN COMUNIDAD ReSI ---
-st.markdown(f"""
-    <div class="comunidad-box">
-        <h3 style="color: #28a745; margin-bottom: 10px;">SUMATE A LA COMUNIDAD ReSI</h3>
-        <p style="font-size: 16px; color: #444;">PARA RECIBIR INFORMACIÓN IMPORTANTE PARA QUE RESCATEMOS SAN ISIDRO</p>
-    </div>
-""", unsafe_allow_html=True)
-
+# --- 11. COMUNIDAD ---
+st.markdown(f"""<div class="comunidad-box"><h3 style="color: #28a745; margin-bottom: 10px;">SUMATE A LA COMUNIDAD ReSI</h3><p style="font-size: 16px; color: #444;">PARA RECIBIR INFORMACIÓN PARA QUE RESCATEMOS SAN ISIDRO</p></div>""", unsafe_allow_html=True)
 c_com, c_btn, c_com2 = st.columns([1, 1.5, 1])
 with c_btn:
     if st.button("SUSCRIBIRME", use_container_width=True):
@@ -214,20 +198,17 @@ if st.session_state.mostrar_comunidad:
     with st.form("form_comunidad", clear_on_submit=True):
         c_nom = st.text_input("Nombre")
         c_loc = st.selectbox("Localidad", ["San Isidro", "Acassuso", "Beccar", "Boulogne", "Martínez", "Villa Adelina"])
-        c_fec = st.text_input("Fecha de Nacimiento (DD/MM/AAAA)")
         c_mail = st.text_input("Email")
-        c_tel = st.text_input("Teléfono")
-        if st.form_submit_button("UNIRME A LA COMUNIDAD"):
+        if st.form_submit_button("UNIRME"):
             try:
-                supabase.table("comunidad").insert({"nombre": c_nom, "localidad": c_loc, "fecha_nacimiento": c_fec, "email": c_mail, "telefono": c_tel, "fecha_suscripcion": datetime.now().strftime("%d/%m/%Y %H:%M")}).execute()
-                st.success("¡Gracias por sumarte!")
+                supabase.table("comunidad").insert({"nombre": c_nom, "localidad": c_loc, "email": c_mail, "fecha_suscripcion": datetime.now().strftime("%d/%m/%Y %H:%M")}).execute()
+                st.success("¡Gracias!")
                 st.session_state.mostrar_comunidad = False
                 st.rerun()
-            except: st.error("Error al suscribirse.")
+            except: st.error("Error.")
 
-# --- 12. SECCIÓN SATÍRICA: BUSCANDO A RAMÓN ---
+# --- 12. BUSCANDO A RAMÓN (CORREGIDO SIN FONDO BLANCO) ---
 st.divider()
-
 codigo_minijuego = f"""
 <!DOCTYPE html>
 <html>
@@ -253,20 +234,15 @@ codigo_minijuego = f"""
         var audio = document.getElementById("sonido-risa");
         audio.play();
         var avatar = document.getElementById("ramon-avatar");
-        
-        // MODIFICACIÓN: Agrandar mucho (el triple) y centrar para que quepa completo
-        avatar.style.width = "180px"; // El triple de 60px
-        avatar.style.top = "50%"; // Mover al centro vertical para que no se corte por abajo
-        avatar.style.left = "50%"; // Mover al centro horizontal
-        avatar.style.transform = "translate(-50%, -50%)"; // Centrar perfectamente
-        avatar.style.zIndex = "100"; // Asegurar que esté arriba de todo
-        avatar.style.filter = "brightness(1.0)"; // Quitar brillo deco
-        
-        // Mejoras visuales para que parezca una tarjeta emergente
-        avatar.style.boxShadow = "0px 0px 20px rgba(0,0,0,0.5)";
-        avatar.style.borderRadius = "15px";
-        avatar.style.backgroundColor = "white"; // Fondo para que destaque
-        avatar.style.border = "3px solid #28a745"; // Borde estilo Wally
+        avatar.style.width = "180px"; 
+        avatar.style.top = "50%"; 
+        avatar.style.left = "50%"; 
+        avatar.style.transform = "translate(-50%, -50%)"; 
+        avatar.style.zIndex = "100"; 
+        avatar.style.filter = "brightness(1.0)"; 
+        avatar.style.backgroundColor = "transparent";
+        avatar.style.border = "none";
+        avatar.style.boxShadow = "none";
     }}
 </script>
 </body>
@@ -274,28 +250,17 @@ codigo_minijuego = f"""
 """
 components.html(codigo_minijuego, height=650)
 
-# --- 13. PANEL DE ADMINISTRADOR ---
+# --- 13. ADMIN ---
 if es_admin:
     st.divider()
-    st.header("📊 Tablero de Gestión ReSI")
+    st.header("📊 Tablero de Gestión")
     if reportes_data:
         df = pd.DataFrame(reportes_data)
-        c1, c2, c3 = st.columns(3)
-        c1.metric("📌 Total", len(df))
-        c2.metric("👥 Vecinos", df['nombre'].nunique())
-        c3.metric("⏳ Pendientes", len(df[df['estado'] == 'Pendiente']))
-        
-        col_a, col_b = st.columns(2)
-        with col_a: st.bar_chart(df['tag'].value_counts())
-        with col_b: st.bar_chart(df['localidad'].value_counts())
-    
-    st.subheader("📝 Publicar Novedad")
+        st.metric("📌 Total", len(df))
+        st.bar_chart(df['tag'].value_counts())
     with st.form("form_nov"):
         t_n = st.text_input("Título")
-        c_n = st.text_area("Contenido o Link")
+        c_n = st.text_area("Contenido/Link")
         if st.form_submit_button("Publicar"):
-            try:
-                supabase.table("novedades").insert({"fecha": datetime.now().strftime("%d/%m/%Y %H:%M"), "titulo": t_n, "contenido": c_n}).execute()
-                st.success("Publicado")
-                st.rerun()
-            except: st.error("Error")
+            supabase.table("novedades").insert({"fecha": datetime.now().strftime("%d/%m/%Y %H:%M"), "titulo": t_n, "contenido": c_n}).execute()
+            st.rerun()
