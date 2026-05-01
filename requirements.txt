@@ -1,8 +1,7 @@
 streamlit
-pandas
 folium
 streamlit-folium
-gspread
-google-auth
-beautifulsoup4
 requests
+beautifulsoup4
+pandas
+supabase
