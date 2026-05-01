@@ -18,6 +18,7 @@ IMG_LOGO_WALLY = f"{URL_BASE}/Logo%20buscando%20ramon.png"
 IMG_MAPA_WALLY = f"{URL_BASE}/Mapa%20buscando%20ramon.png"
 IMG_AVATAR = f"{URL_BASE}/Avatar%20buscando%20ramon.png"
 AUDIO_RISA = f"{URL_BASE}/Risa%20buscando%20ramon.mp3"
+IMG_COMUNIDAD = f"{URL_BASE}/Comunidad%20resi.png" # Se agregó %20 para manejar el espacio en el nombre
 
 # --- 2. CONEXIÓN A SUPABASE ---
 SUPABASE_URL = 'https://iknwswwouxledkavyrwf.supabase.co'
@@ -187,12 +188,12 @@ try:
             else: st.info(nov['contenido'])
 except: pass
 
-# --- 11. COMUNIDAD ---
-st.markdown(f"""<div class="comunidad-box"><h3 style="color: #28a745; margin-bottom: 10px;">SUMATE A LA COMUNIDAD ReSI</h3><p style="font-size: 16px; color: #444;">PARA RECIBIR INFORMACIÓN PARA QUE RESCATEMOS SAN ISIDRO</p></div>""", unsafe_allow_html=True)
-c_com, c_btn, c_com2 = st.columns([1, 1.5, 1])
-with c_btn:
-    if st.button("SUSCRIBIRME", use_container_width=True):
-        st.session_state.mostrar_comunidad = not st.session_state.mostrar_comunidad
+# --- 11. COMUNIDAD ReSI (Actualizado con tu nueva imagen de GitHub) ---
+st.markdown(f"""
+    <div style="text-align: center; margin-top: 40px; margin-bottom: 20px;">
+        <img src="{IMG_COMUNIDAD}" style="max-width: 100%; height: auto; border-radius: 15px;" alt="Comunidad ReSI">
+    </div>
+""", unsafe_allow_html=True)
 
 if st.session_state.mostrar_comunidad:
     with st.form("form_comunidad", clear_on_submit=True):
