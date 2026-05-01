@@ -96,7 +96,7 @@ with st.sidebar:
     es_admin = (pwd_input == ADMIN_PASSWORD)
 
 # --- 6. CABECERA, SLOGAN Y BOTÓN ---
-col_izq, col_centro, col_der = st.columns([1, 55, 1])
+col_izq, col_centro, col_der = st.columns([1, 35, 1])
 with col_centro:
     try: st.image("logo_resi.png", use_container_width=True)
     except: st.header("ReSI - Realidad San Isidro")
@@ -236,7 +236,7 @@ codigo_minijuego = f"""
     .contenedor-juego {{ position: relative; width: 100%; max-width: 800px; margin: 0 auto; border: 5px solid #28a745; border-radius: 15px; overflow: hidden; background-color: #fff; }}
     .logo-wally {{ width: 100%; display: block; border-bottom: 3px solid #28a745; }}
     .mapa-fondo {{ width: 100%; display: block; }}
-    #ramon-avatar {{ position: absolute; top: 75%; left: 22%; width: 22px; cursor: pointer; z-index: 10; filter: brightness(0.9); }}
+    #ramon-avatar {{ position: absolute; top: 75%; left: 22%; width: 22px; cursor: pointer; z-index: 10; filter: brightness(0.9); transition: all 0.5s ease; }}
 </style>
 </head>
 <body>
@@ -253,11 +253,20 @@ codigo_minijuego = f"""
         var audio = document.getElementById("sonido-risa");
         audio.play();
         var avatar = document.getElementById("ramon-avatar");
-        // ACÁ ESTÁ LA MODIFICACIÓN AL TRIPLE DE TAMAÑO (DE 60px a 180px)
-        avatar.style.width = "180px";
-        avatar.style.zIndex = "100";
-        avatar.style.filter = "brightness(1.2)";
-        avatar.style.transition = "all 0.3s ease";
+        
+        // MODIFICACIÓN: Agrandar mucho (el triple) y centrar para que quepa completo
+        avatar.style.width = "180px"; // El triple de 60px
+        avatar.style.top = "50%"; // Mover al centro vertical para que no se corte por abajo
+        avatar.style.left = "50%"; // Mover al centro horizontal
+        avatar.style.transform = "translate(-50%, -50%)"; // Centrar perfectamente
+        avatar.style.zIndex = "100"; // Asegurar que esté arriba de todo
+        avatar.style.filter = "brightness(1.0)"; // Quitar brillo deco
+        
+        // Mejoras visuales para que parezca una tarjeta emergente
+        avatar.style.boxShadow = "0px 0px 20px rgba(0,0,0,0.5)";
+        avatar.style.borderRadius = "15px";
+        avatar.style.backgroundColor = "white"; // Fondo para que destaque
+        avatar.style.border = "3px solid #28a745"; // Borde estilo Wally
     }}
 </script>
 </body>
