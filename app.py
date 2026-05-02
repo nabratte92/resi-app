@@ -20,6 +20,22 @@ IMG_AVATAR = f"{URL_BASE}/Avatar%20buscando%20ramon.png"
 AUDIO_RISA = f"{URL_BASE}/Risa%20buscando%20ramon.mp3"
 IMG_COMUNIDAD = f"{URL_BASE}/Comunidad%20resi.png"
 
+# --- METADATOS PARA WHATSAPP (OPEN GRAPH) ---
+URL_PREVIEW = f"{URL_BASE}/preview.png"
+st.markdown(
+    f"""
+    <head>
+        <meta property="og:title" content="ReSI - Rescatemos San Isidro">
+        <meta property="og:description" content="Plataforma vecinal para reportar baches, luminarias y problemas de infraestructura.">
+        <meta property="og:image" content="{URL_PREVIEW}">
+        <meta property="og:url" content="https://rescatemossanisidro.com.ar">
+        <meta property="og:type" content="website">
+        <meta name="twitter:card" content="summary_large_image">
+    </head>
+    """,
+    unsafe_allow_html=True
+)
+
 # --- 2. CONEXIÓN A SUPABASE ---
 SUPABASE_URL = 'https://iknwswwouxledkavyrwf.supabase.co'
 SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlrbndzd3dvdXhsZWRrYXZ5cndmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MDE4MTgsImV4cCI6MjA5MzE3NzgxOH0.CnHWCK78FGRASgnRX3dLI6r1Pw0rCEtJhfccCvHTqRI'
