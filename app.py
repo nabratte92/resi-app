@@ -165,7 +165,7 @@ with c2:
     try: st.video("tutorial.mp4")
     except: pass
 
-# --- 9. MAPA DE REPORTES ---
+# --- 9. MAPA DE REPORTES Y LÓGICA DE ADHESIONES ---
 st.divider()
 st.write("### 🌎 Mapa de Reportes")
 reportes_data = []
@@ -175,17 +175,114 @@ try:
 except: pass
 
 m_p = folium.Map(location=[-34.4746, -58.5132], zoom_start=13)
+df_todos = pd.DataFrame()
+df_para_el_mapa = pd.DataFrame()
+
 if reportes_data:
-    for r in reportes_data:
+    df_todos = pd.DataFrame(reportes_data)
+    
+    # Aseguramos que la columna exista para evitar errores
+    if 'id_reporte_original' not in df_todos.columns:
+        df_todos['id_reporte_original'] = None
+        
+    # Filtramos: el mapa solo muestra los originales (padres)
+    df_para_el_mapa = df_todos[df_todos['id_reporte_original'].isnull()].copy()
+    
+    # Creamos una columna temporal para guardar el HTML exacto del popup
+    df_para_el_mapa['popup_html'] = ""
+
+    for index, r in df_para_el_mapa.iterrows():
         try:
             lt, ln = float(str(r['lat']).replace(',', '.')), float(str(r['lon']).replace(',', '.'))
             color = "#dc3545" if r['tag'] in CATS_ROJAS else "#fd7e14" if r['tag'] in CATS_NARANJAS else "#ffc107"
             txt_c = "white" if r['tag'] in CATS_ROJAS else "black"
+            
+            # Construimos el HTML del popup y lo guardamos
             pop = f"<div style='width:180px;'><h4 style='color:{color}; margin:0;'>{r['tag']}</h4><p style='font-size:12px;'>{r['direccion_exacta']}</p><img src='{r['url_foto']}' style='width:100%; border-radius:5px;'></div>"
+            df_para_el_mapa.at[index, 'popup_html'] = pop
+            
             icon = f'<div style="background-color:{color}; color:{txt_c}; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-weight:bold; border:2px solid {txt_c};">R</div>'
             folium.Marker([lt, ln], popup=folium.Popup(pop, max_width=250), icon=folium.DivIcon(html=icon)).add_to(m_p)
         except: continue
-st_folium(m_p, width="100%", height=500, key="mapa_final")
+
+out_mapa = st_folium(m_p, width="100%", height=500, key="mapa_final")
+
+# --- LÓGICA DE BARRA LATERAL (ADHESIONES) ---
+if 'modo_adhesion' not in st.session_state: 
+    st.session_state.modo_adhesion = False
+
+if out_mapa and out_mapa.get("last_object_clicked_popup"):
+    clicked_popup = out_mapa["last_object_clicked_popup"]
+    
+    # Buscamos el reporte padre comparando el HTML del popup clickeado
+    padres_match = df_para_el_mapa[df_para_el_mapa['popup_html'] == clicked_popup]
+    
+    if not padres_match.empty:
+        reporte_padre = padres_match.iloc[0]
+
+        with st.sidebar:
+            # Calculamos el total de vecinos adheridos a este ID de reporte
+            adherentes = df_todos[df_todos['id_reporte_original'] == reporte_padre['id']]
+            total_vecinos = 1 + len(adherentes)
+
+            if not st.session_state.modo_adhesion:
+                st.title("📢 Detalle del Reclamo")
+                if pd.notna(reporte_padre.get('url_foto')) and str(reporte_padre.get('url_foto')).startswith('http'):
+                    st.image(reporte_padre['url_foto'])
+                
+                st.write(f"**Categoría:** {reporte_padre.get('tag', '')}")
+                st.write(f"**Dirección:** {reporte_padre.get('direccion_exacta', '')}")
+                st.metric("Vecinos que reportaron este problema", total_vecinos)
+                
+                if st.button("Yo también reclamo soluciones para esto", use_container_width=True):
+                    st.session_state.modo_adhesion = True
+                    st.rerun()
+            else:
+                st.title("➕ Sumar mi reclamo")
+                st.info("Dejanos tus datos para respaldar este pedido.")
+                with st.form("form_nueva_fila_adhesion"):
+                    nombre_adh = st.text_input("Nombre Completo (Obligatorio)")
+                    email_adh = st.text_input("Email (Opcional)")
+                    tel_adh = st.text_input("Teléfono (Opcional)")
+                    descripcion_adh = st.text_area("Comentario adicional (Opcional)")
+                    
+                    col_btn1, col_btn2 = st.columns(2)
+                    with col_btn1:
+                        submit_adh = st.form_submit_button("Sumar mi apoyo")
+                    with col_btn2:
+                        if st.form_submit_button("Cancelar"):
+                            st.session_state.modo_adhesion = False
+                            st.rerun()
+                    
+                    if submit_adh:
+                        if not nombre_adh:
+                            st.error("Por favor, completá tu nombre.")
+                        else:
+                            # Heredamos la ubicación y foto, y vinculamos el ID padre
+                            nueva_adhesion = {
+                                "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                                "nombre": nombre_adh,
+                                "email": email_adh,
+                                "tel": tel_adh,
+                                "descripcion": descripcion_adh,
+                                "tag": reporte_padre.get('tag', ''),
+                                "direccion_exacta": reporte_padre.get('direccion_exacta', ''),
+                                "localidad": reporte_padre.get('localidad', ''),
+                                "lat": reporte_padre.get('lat', ''),
+                                "lon": reporte_padre.get('lon', ''),
+                                "url_foto": reporte_padre.get('url_foto', ''),
+                                "estado": "Pendiente",
+                                "id_reporte_original": int(reporte_padre['id'])
+                            }
+                            try:
+                                supabase.table("reportes").insert(nueva_adhesion).execute()
+                                st.session_state.modo_adhesion = False
+                                st.success("¡Te sumaste al reclamo con éxito!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Hubo un error al registrar: {e}")
+else:
+    st.session_state.modo_adhesion = False
 
 # --- 10. NOVEDADES ---
 st.divider()
