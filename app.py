@@ -7,7 +7,6 @@ from datetime import datetime
 import pandas as pd
 from supabase import create_client, Client
 import streamlit.components.v1 as components
-import re
 
 # --- 1. CONFIGURACIÓN GITHUB (COMPLETÁ CON TUS DATOS) ---
 USUARIO_GH = "nabratte92" 
@@ -98,13 +97,7 @@ if 'lon_sel' not in st.session_state: st.session_state.lon_sel = -58.5132
 if 'mostrar_form' not in st.session_state: st.session_state.mostrar_form = False
 if 'mostrar_comunidad' not in st.session_state: st.session_state.mostrar_comunidad = False
 
-# --- 5. BARRA LATERAL (ADMIN) ---
-with st.sidebar:
-    st.title("🛠️ Gestión ReSI")
-    pwd_input = st.text_input("Acceso Administrador", type="password")
-    es_admin = (pwd_input == ADMIN_PASSWORD)
-
-# --- 6. CABECERA Y BOTÓN ---
+# --- 5. CABECERA Y BOTÓN DE INICIO ---
 col_izq, col_centro, col_der = st.columns([1, 65, 1])
 with col_centro:
     try: st.image("logo_resi.png", use_container_width=True)
@@ -114,7 +107,7 @@ with col_centro:
         st.session_state.mostrar_form = True
     st.markdown('<p class="synthetic-list">Baches, veredas, luminarias, seguridad, higiene, arbolado y tránsito.</p>', unsafe_allow_html=True)
 
-# --- 7. FORMULARIO DE REPORTE ---
+# --- 6. FORMULARIO DE REPORTE ---
 if st.session_state.mostrar_form:
     st.markdown("---")
     st.write("### 📍 Ubicación exacta")
@@ -158,7 +151,7 @@ if st.session_state.mostrar_form:
                     st.rerun()
                 except: st.error("Error al enviar.")
 
-# --- 8. VIDEO TUTORIAL ---
+# --- 7. VIDEO TUTORIAL ---
 st.divider()
 st.write("### 🎥 Tutorial:")
 c1, c2, c3 = st.columns([1, 1.8, 1])
@@ -166,7 +159,7 @@ with c2:
     try: st.video("tutorial.mp4")
     except: pass
 
-# --- 9. MAPA DE REPORTES Y LÓGICA DE ADHESIONES ---
+# --- 8. MAPA DE REPORTES Y LÓGICA DE ADHESIONES ---
 st.divider()
 st.write("### 🌎 Mapa de Reportes")
 reportes_data = []
@@ -182,12 +175,14 @@ df_para_el_mapa = pd.DataFrame()
 if reportes_data:
     df_todos = pd.DataFrame(reportes_data)
     
-    # Aseguramos que la columna exista
     if 'id_reporte_original' not in df_todos.columns:
         df_todos['id_reporte_original'] = None
         
-    # Filtramos para dibujar solo los reportes principales en el mapa
     df_para_el_mapa = df_todos[df_todos['id_reporte_original'].isnull()].copy()
+
+    # Preparamos las coordenadas para la lógica de clics (Infalible)
+    df_para_el_mapa['lat_float'] = df_para_el_mapa['lat'].astype(str).str.replace(',', '.').astype(float).round(4)
+    df_para_el_mapa['lon_float'] = df_para_el_mapa['lon'].astype(str).str.replace(',', '.').astype(float).round(4)
 
     for index, r in df_para_el_mapa.iterrows():
         try:
@@ -195,13 +190,22 @@ if reportes_data:
             color = "#dc3545" if r['tag'] in CATS_ROJAS else "#fd7e14" if r['tag'] in CATS_NARANJAS else "#ffc107"
             txt_c = "white" if r['tag'] in CATS_ROJAS else "black"
             
-            # Calculamos cuántas personas apoyaron este reporte específico
+            # Calculamos cuántas personas apoyaron
             adherentes_locales = df_todos[df_todos['id_reporte_original'] == r['id']]
             total_v = 1 + len(adherentes_locales)
-            texto_vecinos = f"Esto fue reportado por: {total_v} vecinos"
             
-            # Incorporamos el texto de los vecinos y un ID oculto (span) dentro de la tarjeta
-            pop_html = f"<div style='width:180px;'><span style='display:none;'>ID__{r['id']}__</span><h4 style='color:{color}; margin:0;'>{r['tag']}</h4><p style='font-size:12px; margin-bottom:5px;'>{r['direccion_exacta']}</p><p style='font-size:12px; margin-top:0px; font-weight:bold; color:#0056b3;'>{texto_vecinos}</p><img src='{r['url_foto']}' style='width:100%; border-radius:5px;'></div>"
+            # LÓGICA GRAMATICAL: "vecino" vs "vecinos"
+            palabra_vecino = "vecino" if total_v == 1 else "vecinos"
+            texto_vecinos = f"Esto fue reportado por: {total_v} {palabra_vecino}"
+            
+            pop_html = f"""
+            <div style='width:180px;'>
+                <h4 style='color:{color}; margin:0;'>{r['tag']}</h4>
+                <p style='font-size:12px; margin:2px 0 5px 0;'>{r['direccion_exacta']}</p>
+                <p style='font-size:12px; margin-top:0px; font-weight:bold; color:#0056b3;'>{texto_vecinos}</p>
+                <img src='{r['url_foto']}' style='width:100%; border-radius:5px;'>
+            </div>
+            """
             
             icon = f'<div style="background-color:{color}; color:{txt_c}; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-weight:bold; border:2px solid {txt_c};">R</div>'
             
@@ -214,82 +218,82 @@ if reportes_data:
 
 out_mapa = st_folium(m_p, width="100%", height=500, key="mapa_final")
 
-# --- LÓGICA DE ADHESIÓN (APARECE INMEDIATAMENTE DEBAJO DEL MAPA) ---
+# --- LÓGICA DE ADHESIÓN (POR COORDENADAS) ---
 if 'modo_adhesion' not in st.session_state: 
     st.session_state.modo_adhesion = False
 
-clicked_popup = out_mapa.get("last_object_clicked_popup") if out_mapa else None
+clicked_obj = out_mapa.get("last_object_clicked") if out_mapa else None
 
-if clicked_popup:
-    # Buscamos el ID oculto que pusimos en el popup
-    match = re.search(r'ID__(\d+)__', clicked_popup)
-    if match:
-        id_buscado = int(match.group(1))
-        padres_match = df_todos[df_todos['id'] == id_buscado]
+if clicked_obj:
+    # Capturamos la coordenada exacta que tocó el usuario y la redondeamos a 4 decimales
+    lat_c = round(float(clicked_obj["lat"]), 4)
+    lon_c = round(float(clicked_obj["lng"]), 4)
+    
+    # Buscamos qué reporte original coincide con esas coordenadas exactas
+    padres_match = df_para_el_mapa[
+        (df_para_el_mapa['lat_float'] == lat_c) & 
+        (df_para_el_mapa['lon_float'] == lon_c)
+    ]
+    
+    if not padres_match.empty:
+        reporte_padre = padres_match.iloc[0]
         
-        if not padres_match.empty:
-            reporte_padre = padres_match.iloc[0]
+        st.markdown("---")
+        
+        if not st.session_state.modo_adhesion:
+            st.info(f"📍 **Reporte seleccionado:** {reporte_padre.get('tag', '')} en {reporte_padre.get('direccion_exacta', '')}")
             
-            # ESTA SECCIÓN SE DIBUJA DEBAJO DEL MAPA PARA MAYOR VISIBILIDAD
-            st.markdown("---")
+            if st.button("🙋‍♂️ Yo también reclamo soluciones para esto", use_container_width=True):
+                st.session_state.modo_adhesion = True
+                st.rerun()
+        else:
+            st.write(f"#### ➕ Sumar mi reclamo")
+            st.warning("Dejanos tus datos para respaldar este pedido. No tenés que volver a cargar foto ni ubicación.")
             
-            adherentes = df_todos[df_todos['id_reporte_original'] == reporte_padre['id']]
-            total_vecinos = 1 + len(adherentes)
-
-            if not st.session_state.modo_adhesion:
-                st.info(f"📍 Estás viendo el reporte: **{reporte_padre.get('tag', '')}** en {reporte_padre.get('direccion_exacta', '')}")
+            with st.form("form_nueva_fila_adhesion"):
+                nombre_adh = st.text_input("Nombre Completo (Obligatorio)")
+                email_adh = st.text_input("Email (Opcional)")
+                tel_adh = st.text_input("Teléfono (Opcional)")
+                descripcion_adh = st.text_area("Comentario adicional (Opcional)")
                 
-                if st.button(f"Yo también reclamo soluciones para esto", use_container_width=True):
-                    st.session_state.modo_adhesion = True
-                    st.rerun()
-            else:
-                st.write("#### ➕ Sumar mi reclamo")
-                st.warning("Dejanos tus datos para respaldar este pedido. No tenés que volver a cargar foto ni ubicación, se vinculan automáticamente.")
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    submit_adh = st.form_submit_button("Confirmar mi apoyo")
+                with col_btn2:
+                    if st.form_submit_button("Cancelar"):
+                        st.session_state.modo_adhesion = False
+                        st.rerun()
                 
-                with st.form("form_nueva_fila_adhesion"):
-                    nombre_adh = st.text_input("Nombre Completo (Obligatorio)")
-                    email_adh = st.text_input("Email (Opcional)")
-                    tel_adh = st.text_input("Teléfono (Opcional)")
-                    descripcion_adh = st.text_area("Comentario adicional (Opcional)")
-                    
-                    col_btn1, col_btn2 = st.columns(2)
-                    with col_btn1:
-                        submit_adh = st.form_submit_button("Confirmar mi apoyo")
-                    with col_btn2:
-                        if st.form_submit_button("Cancelar"):
+                if submit_adh:
+                    if not nombre_adh:
+                        st.error("Por favor, completá tu nombre.")
+                    else:
+                        nueva_adhesion = {
+                            "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                            "nombre": nombre_adh,
+                            "email": email_adh,
+                            "tel": tel_adh,
+                            "descripcion": descripcion_adh,
+                            "tag": reporte_padre.get('tag', ''),
+                            "direccion_exacta": reporte_padre.get('direccion_exacta', ''),
+                            "localidad": reporte_padre.get('localidad', ''),
+                            "lat": reporte_padre.get('lat', ''),
+                            "lon": reporte_padre.get('lon', ''),
+                            "url_foto": reporte_padre.get('url_foto', ''),
+                            "estado": "Pendiente",
+                            "id_reporte_original": int(reporte_padre['id'])
+                        }
+                        try:
+                            supabase.table("reportes").insert(nueva_adhesion).execute()
                             st.session_state.modo_adhesion = False
+                            st.success("¡Te sumaste al reclamo con éxito! Actualizando mapa...")
                             st.rerun()
-                    
-                    if submit_adh:
-                        if not nombre_adh:
-                            st.error("Por favor, completá tu nombre.")
-                        else:
-                            nueva_adhesion = {
-                                "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                                "nombre": nombre_adh,
-                                "email": email_adh,
-                                "tel": tel_adh,
-                                "descripcion": descripcion_adh,
-                                "tag": reporte_padre.get('tag', ''),
-                                "direccion_exacta": reporte_padre.get('direccion_exacta', ''),
-                                "localidad": reporte_padre.get('localidad', ''),
-                                "lat": reporte_padre.get('lat', ''),
-                                "lon": reporte_padre.get('lon', ''),
-                                "url_foto": reporte_padre.get('url_foto', ''),
-                                "estado": "Pendiente",
-                                "id_reporte_original": int(reporte_padre['id'])
-                            }
-                            try:
-                                supabase.table("reportes").insert(nueva_adhesion).execute()
-                                st.session_state.modo_adhesion = False
-                                st.success("¡Te sumaste al reclamo con éxito! Recargando el mapa...")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Hubo un error al registrar: {e}")
+                        except Exception as e:
+                            st.error(f"Hubo un error al registrar: {e}")
 else:
     st.session_state.modo_adhesion = False
 
-# --- 10. NOVEDADES ---
+# --- 9. NOVEDADES ---
 st.divider()
 st.write("### 📰 Novedades y Soluciones")
 try:
@@ -305,7 +309,7 @@ try:
             else: st.info(nov['contenido'])
 except: pass
 
-# --- 11. COMUNIDAD ---
+# --- 10. COMUNIDAD ---
 st.markdown(f"""
     <div style="text-align: center; margin-top: 40px; margin-bottom: 20px;">
         <img src="{IMG_COMUNIDAD}" style="max-width: 100%; height: auto; border-radius: 15px;" alt="Comunidad ReSI">
@@ -340,7 +344,7 @@ if st.session_state.mostrar_comunidad:
             except: 
                 st.error("Error al suscribirse.")
 
-# --- 12. BUSCANDO A RAMÓN ---
+# --- 11. BUSCANDO A RAMÓN ---
 st.divider()
 
 st.write("### Busquemos a Ramón, si lo encontrás clickeá sobre él para ver qué hace: ¿Se pondrá a trabajar?")
@@ -386,42 +390,52 @@ codigo_minijuego = f"""
 """
 components.html(codigo_minijuego, height=650)
 
-# --- 13. ADMIN ---
-if es_admin:
+# --- 12. ADMIN SECRETO ---
+st.markdown("<br><br><br>", unsafe_allow_html=True)
+col_admin1, col_admin2, col_admin3 = st.columns([4, 1, 4])
+with col_admin2:
+    # La casilla de verificación secreta al fondo
+    mostrar_admin = st.checkbox("v1.0", value=False)
+
+if mostrar_admin:
     st.divider()
-    st.header("📊 Tablero de Gestión")
-    if reportes_data:
-        df = pd.DataFrame(reportes_data)
-        c1, c2, c3 = st.columns(3)
-        c1.metric("📌 Total Reportes", len(df))
-        if 'nombre' in df.columns: c2.metric("👥 Vecinos", df['nombre'].nunique())
-        if 'estado' in df.columns: c3.metric("⏳ Pendientes", len(df[df['estado'] == 'Pendiente']))
-        
-        col_a, col_b = st.columns(2)
-        with col_a: 
-            st.subheader("Categorías")
-            if 'tag' in df.columns: st.bar_chart(df['tag'].value_counts())
-        with col_b: 
-            st.subheader("Localidades")
-            if 'localidad' in df.columns: st.bar_chart(df['localidad'].value_counts())
+    pwd_input = st.text_input("Clave de acceso", type="password")
+    es_admin = (pwd_input == ADMIN_PASSWORD)
+
+    if es_admin:
+        st.header("📊 Tablero de Gestión")
+        if reportes_data:
+            df = pd.DataFrame(reportes_data)
+            c1, c2, c3 = st.columns(3)
+            c1.metric("📌 Total Reportes", len(df))
+            if 'nombre' in df.columns: c2.metric("👥 Vecinos", df['nombre'].nunique())
+            if 'estado' in df.columns: c3.metric("⏳ Pendientes", len(df[df['estado'] == 'Pendiente']))
             
-        st.subheader("Gravedad por Color")
-        def asignar_color_est(t):
-            if t in CATS_ROJAS: return "1. 🔴 Crítico"
-            if t in CATS_NARANJAS: return "2. 🟠 Alto"
-            if t in CATS_AMARILLAS: return "3. 🟡 Moderado"
-            return "4. 🟢 Otros"
-        if 'tag' in df.columns:
-            df['Gravedad'] = df['tag'].apply(asignar_color_est)
-            st.bar_chart(df['Gravedad'].value_counts().sort_index())
-            
-    st.subheader("📝 Publicar Novedad")
-    with st.form("form_nov"):
-        t_n = st.text_input("Título")
-        c_n = st.text_area("Contenido/Link")
-        if st.form_submit_button("Publicar"):
-            try:
-                supabase.table("novedades").insert({"fecha": datetime.now().strftime("%d/%m/%Y %H:%M"), "titulo": t_n, "contenido": c_n}).execute()
-                st.success("Publicado")
-                st.rerun()
-            except: st.error("Error")
+            col_a, col_b = st.columns(2)
+            with col_a: 
+                st.subheader("Categorías")
+                if 'tag' in df.columns: st.bar_chart(df['tag'].value_counts())
+            with col_b: 
+                st.subheader("Localidades")
+                if 'localidad' in df.columns: st.bar_chart(df['localidad'].value_counts())
+                
+            st.subheader("Gravedad por Color")
+            def asignar_color_est(t):
+                if t in CATS_ROJAS: return "1. 🔴 Crítico"
+                if t in CATS_NARANJAS: return "2. 🟠 Alto"
+                if t in CATS_AMARILLAS: return "3. 🟡 Moderado"
+                return "4. 🟢 Otros"
+            if 'tag' in df.columns:
+                df['Gravedad'] = df['tag'].apply(asignar_color_est)
+                st.bar_chart(df['Gravedad'].value_counts().sort_index())
+                
+        st.subheader("📝 Publicar Novedad")
+        with st.form("form_nov"):
+            t_n = st.text_input("Título")
+            c_n = st.text_area("Contenido/Link")
+            if st.form_submit_button("Publicar"):
+                try:
+                    supabase.table("novedades").insert({"fecha": datetime.now().strftime("%d/%m/%Y %H:%M"), "titulo": t_n, "contenido": c_n}).execute()
+                    st.success("Publicado")
+                    st.rerun()
+                except: st.error("Error")
