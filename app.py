@@ -49,11 +49,8 @@ def init_connection():
 supabase = init_connection()
 
 # --- 3. CATEGORÍAS Y GRAVEDAD ---
-# Quitamos Plagas de Rojas porque ahora la querés en Amarillo
 CATS_ROJAS = ["Poste en riesgo de caída", "Hecho de inseguridad", "Riesgo de derrumbe", "Árbol caído", "Abuso de autoridad", "Fuga de gas", "Microbasural clandestino"]
 CATS_NARANJAS = ["Contenedor desbordado", "Corte de luz", "Cloaca colapsada", "Zanja tapada", "Pérdida de agua", "Corte de agua", "Parada/Refugio vandalizado"]
-
-# Agregamos todas tus nuevas categorías a la lista de Amarillas
 CATS_AMARILLAS = [
     "Bache", "Vereda rota", "Luminaria con problemas", "Auto mal estacionado", 
     "Falta rampa", "Poda mal hecha", "Pedido de poda", "Cables peligrosos", 
@@ -62,7 +59,6 @@ CATS_AMARILLAS = [
 ]
 
 todas_las_categorias = CATS_ROJAS + CATS_NARANJAS + CATS_AMARILLAS
-# Limpiamos duplicados y ordenamos para el selector
 LISTA_SELECTOR = sorted(list(set(todas_las_categorias)))
 if "Bache" in LISTA_SELECTOR:
     LISTA_SELECTOR.remove("Bache")
@@ -124,7 +120,6 @@ with col_centro:
 # --- 6. FORMULARIO DE REPORTE ---
 if st.session_state.mostrar_form:
     st.markdown("---")
-    # Título solicitado
     st.write("### 📍 Señalá en el mapa la ubicación")
     
     # Buscador de direcciones
@@ -137,22 +132,31 @@ if st.session_state.mostrar_form:
         if st.button("Buscar en mapa", use_container_width=True):
             if dir_buscar:
                 try:
-                    # Nominatim API
+                    # Nominatim API con User-Agent seguro
                     query = f"{dir_buscar}, San Isidro, Buenos Aires, Argentina"
                     url_nom = f"https://nominatim.openstreetmap.org/search?format=json&q={requests.utils.quote(query)}"
-                    headers = {"User-Agent": "ReSI-App/1.0"}
+                    headers = {"User-Agent": "ReSI-App/1.1 (contacto@rescatemossanisidro.com.ar)"}
                     res_nom = requests.get(url_nom, headers=headers).json()
-                    if res_nom:
+                    
+                    if res_nom and len(res_nom) > 0:
                         st.session_state.lat_sel = float(res_nom[0]['lat'])
                         st.session_state.lon_sel = float(res_nom[0]['lon'])
                         st.rerun()
                     else:
-                        st.error("No se encontró la ubicación. Intentá ser más específico.")
-                except:
-                    st.error("Error en el buscador.")
+                        st.warning("No encontramos la ubicación exacta. Probá buscando solo el nombre de la calle y localidad (Ej: Diego Palma, San Isidro).")
+                except Exception as e:
+                    st.error("Error al conectar con el mapa. Por favor, marcá el punto manualmente.")
 
-    m_sel = folium.Map(location=[st.session_state.lat_sel, st.session_state.lon_sel], zoom_start=15)
-    folium.Marker([st.session_state.lat_sel, st.session_state.lon_sel], icon=folium.Icon(color='red')).add_to(m_sel)
+    m_sel = folium.Map(location=[st.session_state.lat_sel, st.session_state.lon_sel], zoom_start=16)
+    
+    # Nuevo icono de selección (El círculo con la R)
+    icon_sel_html = '<div style="background-color:#dc3545; color:white; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-weight:bold; border:2px solid white; box-shadow: 0px 4px 6px rgba(0,0,0,0.4); margin-top:-16px; margin-left:-16px;">R</div>'
+    
+    folium.Marker(
+        [st.session_state.lat_sel, st.session_state.lon_sel], 
+        icon=folium.DivIcon(html=icon_sel_html)
+    ).add_to(m_sel)
+    
     out = st_folium(m_sel, width="100%", height=300, key="selector")
     if out and out.get("last_clicked"):
         st.session_state.lat_sel = out["last_clicked"]["lat"]
@@ -243,7 +247,7 @@ if reportes_data:
             </div>
             """
             
-            icon = f'<div style="background-color:{color}; color:{txt_c}; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-weight:bold; border:2px solid {txt_c};">R</div>'
+            icon = f'<div style="background-color:{color}; color:{txt_c}; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-weight:bold; border:2px solid {txt_c}; margin-top:-16px; margin-left:-16px;">R</div>'
             
             folium.Marker(
                 [lt, ln], 
