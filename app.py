@@ -106,7 +106,27 @@ if 'lat_sel' not in st.session_state: st.session_state.lat_sel = -34.4746
 if 'lon_sel' not in st.session_state: st.session_state.lon_sel = -58.5132
 if 'mostrar_form' not in st.session_state: st.session_state.mostrar_form = False
 if 'mostrar_comunidad' not in st.session_state: st.session_state.mostrar_comunidad = False
-if 'mensaje_exito' not in st.session_state: st.session_state.mensaje_exito = None
+
+# LÓGICA DE LA VENTANA EMERGENTE (POP-UP)
+if st.session_state.get('mostrar_popup_exito', False):
+    codigo_popup = """
+    <script>
+    const popupHTML = `
+    <div id="resi-exito-popup" style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:white; padding:30px 40px; border-radius:15px; z-index:9999999; box-shadow:0 15px 40px rgba(0,0,0,0.4); text-align:center; min-width:320px; border: 3px solid #28a745; font-family: sans-serif;">
+        <button onclick="document.getElementById('resi-exito-popup').remove()" style="position:absolute; top:10px; right:15px; background:none; border:none; font-size:24px; font-weight:bold; cursor:pointer; color:#888;">&times;</button>
+        <h2 style="color:#28a745; margin-top:10px; margin-bottom:15px; font-size: 24px;">Reporte cargado con éxito</h2>
+        <p style="font-size:18px; color:#444; margin-bottom:10px;">Gracias por sumar tu aporte<br>para rescatar San Isidro</p>
+    </div>
+    `;
+    window.parent.document.body.insertAdjacentHTML('beforeend', popupHTML);
+    setTimeout(function() {
+        var el = window.parent.document.getElementById('resi-exito-popup');
+        if (el) el.remove();
+    }, 30000);
+    </script>
+    """
+    components.html(codigo_popup, height=0)
+    st.session_state.mostrar_popup_exito = False
 
 # --- 5. CABECERA Y BOTÓN DE INICIO ---
 col_izq, col_centro, col_der = st.columns([1, 65, 1])
@@ -114,12 +134,6 @@ with col_centro:
     try: st.image("logo_resi.png", use_container_width=True)
     except: st.header("ReSI - Realidad San Isidro")
     st.markdown('<p class="slogan">Una herramienta para que el intendente y sus funcionarios se ubiquen en el mapa</p>', unsafe_allow_html=True)
-    
-    # MUESTRA EL CARTEL DE ÉXITO SI EXISTE MEMORIA DE ENVÍO
-    if st.session_state.mensaje_exito:
-        st.success(st.session_state.mensaje_exito)
-        st.session_state.mensaje_exito = None # Se limpia para evitar que quede fijo permanente
-        
     if st.button("🚨 INICIAR REPORTE", use_container_width=True):
         st.session_state.mostrar_form = True
     st.markdown('<p class="synthetic-list">Baches, veredas, luminarias, seguridad, higiene, arbolado y tránsito.</p>', unsafe_allow_html=True)
@@ -129,7 +143,6 @@ if st.session_state.mostrar_form:
     st.markdown("---")
     st.write("### 📍 Señalá en el mapa la ubicación")
     
-    # Buscador de direcciones
     col_busq1, col_busq2 = st.columns([3, 1])
     with col_busq1:
         dir_buscar = st.text_input("🔍 Buscar dirección rápida:", placeholder="Ej: Centenario 77, San Isidro")
@@ -172,15 +185,25 @@ if st.session_state.mostrar_form:
         nombre = st.text_input("Nombre Completo (Obligatorio)")
         email_rep = st.text_input("Email (Opcional)")
         tel_rep = st.text_input("Teléfono (Opcional)")
-        tag = st.selectbox("Categoría (Obligatorio)", LISTA_SELECTOR)
+        
+        # CATEGORÍA CON BUSCADOR (Escribir adentro filtra las opciones)
+        tag = st.selectbox(
+            "Categoría (Obligatorio)", 
+            LISTA_SELECTOR, 
+            index=None, 
+            placeholder="Escribí para buscar o seleccioná de la lista..."
+        )
+        
         localidad = st.selectbox("Localidad", ["San Isidro", "Acassuso", "Beccar", "Boulogne", "Martínez", "Villa Adelina"])
         direccion = st.text_input("Dirección (Calle y altura)")
         descripcion = st.text_area("Descripción (Opcional)")
         foto = st.file_uploader("Subir Foto", type=["jpg", "png", "jpeg"])
+        
         if st.form_submit_button("ENVIAR REPORTE"):
-            if not foto or not nombre or not direccion:
+            if not foto or not nombre or not direccion or not tag:
                 st.error("Completá los campos obligatorios.")
             else:
+                hubo_error = False
                 try:
                     res_img = requests.post(f"https://api.imgbb.com/1/upload?key={st.secrets['IMGBB_API_KEY']}", files={"image": foto.getvalue()})
                     url_foto = res_img.json()["data"]["url"]
@@ -195,12 +218,15 @@ if st.session_state.mostrar_form:
                         "lat": lat_s, "lon": lon_s, "estado": "Pendiente"
                     }
                     supabase.table("reportes").insert(nuevo_reporte).execute()
-                    
-                    # ASIGNACIÓN DEL TEXTO DE ÉXITO SOLICITADO
-                    st.session_state.mensaje_exito = "Tu reporte fue cargado con éxito, gracias por sumar tu aporte para rescatar San Isidro"
+                except Exception as e:
+                    hubo_error = True
+                    st.error("Error al enviar tu reporte, intentá nuevamente.")
+                
+                # REINICIO FUERA DEL TRY PARA EVITAR FALSOS ERRORES
+                if not hubo_error:
+                    st.session_state.mostrar_popup_exito = True
                     st.session_state.mostrar_form = False
                     st.rerun()
-                except: st.error("Error al enviar.")
 
 # --- 7. VIDEO TUTORIAL ---
 st.divider()
@@ -309,28 +335,32 @@ if clicked_obj:
                     if not nombre_adh:
                         st.error("Por favor, completá tu nombre.")
                     else:
-                        nueva_adhesion = {
-                            "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                            "nombre": nombre_adh,
-                            "email": email_adh,
-                            "tel": tel_adh,
-                            "descripcion": descripcion_adh,
-                            "tag": reporte_padre.get('tag', ''),
-                            "direccion_exacta": reporte_padre.get('direccion_exacta', ''),
-                            "localidad": reporte_padre.get('localidad', ''),
-                            "lat": reporte_padre.get('lat', ''),
-                            "lon": reporte_padre.get('lon', ''),
-                            "url_foto": reporte_padre.get('url_foto', ''),
-                            "estado": "Pendiente",
-                            "id_reporte_original": int(reporte_padre['id'])
-                        }
+                        hubo_error_adhesion = False
                         try:
+                            nueva_adhesion = {
+                                "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                                "nombre": nombre_adh,
+                                "email": email_adh,
+                                "tel": tel_adh,
+                                "descripcion": descripcion_adh,
+                                "tag": reporte_padre.get('tag', ''),
+                                "direccion_exacta": reporte_padre.get('direccion_exacta', ''),
+                                "localidad": reporte_padre.get('localidad', ''),
+                                "lat": reporte_padre.get('lat', ''),
+                                "lon": reporte_padre.get('lon', ''),
+                                "url_foto": reporte_padre.get('url_foto', ''),
+                                "estado": "Pendiente",
+                                "id_reporte_original": int(reporte_padre['id'])
+                            }
                             supabase.table("reportes").insert(nueva_adhesion).execute()
-                            st.session_state.modo_adhesion = False
-                            st.success("¡Te sumaste al reclamo!")
-                            st.rerun()
                         except Exception as e:
-                            st.error(f"Error: {e}")
+                            hubo_error_adhesion = True
+                            st.error("Error al sumar tu apoyo. Intentá de nuevo.")
+                            
+                        if not hubo_error_adhesion:
+                            st.session_state.modo_adhesion = False
+                            st.session_state.mostrar_popup_exito = True
+                            st.rerun()
 else:
     st.session_state.modo_adhesion = False
 
@@ -387,7 +417,7 @@ if st.session_state.mostrar_comunidad:
 
 # --- 11. BUSCANDO A RAMÓN ---
 st.divider()
-st.write("### Busquemos a Ramón, si lo encontrás clickeá sobre él para ver qué hace:")
+st.write("### Busquemos a Ramón, si lo encontrás clickeá sobre él para ver qué hace: ¿Se pondrá a trabajar?")
 codigo_minijuego = f"""
 <!DOCTYPE html>
 <html>
