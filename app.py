@@ -106,6 +106,7 @@ if 'lat_sel' not in st.session_state: st.session_state.lat_sel = -34.4746
 if 'lon_sel' not in st.session_state: st.session_state.lon_sel = -58.5132
 if 'mostrar_form' not in st.session_state: st.session_state.mostrar_form = False
 if 'mostrar_comunidad' not in st.session_state: st.session_state.mostrar_comunidad = False
+if 'mensaje_exito' not in st.session_state: st.session_state.mensaje_exito = None
 
 # --- 5. CABECERA Y BOTÓN DE INICIO ---
 col_izq, col_centro, col_der = st.columns([1, 65, 1])
@@ -113,6 +114,12 @@ with col_centro:
     try: st.image("logo_resi.png", use_container_width=True)
     except: st.header("ReSI - Realidad San Isidro")
     st.markdown('<p class="slogan">Una herramienta para que el intendente y sus funcionarios se ubiquen en el mapa</p>', unsafe_allow_html=True)
+    
+    # MUESTRA EL CARTEL DE ÉXITO SI EXISTE MEMORIA DE ENVÍO
+    if st.session_state.mensaje_exito:
+        st.success(st.session_state.mensaje_exito)
+        st.session_state.mensaje_exito = None # Se limpia para evitar que quede fijo permanente
+        
     if st.button("🚨 INICIAR REPORTE", use_container_width=True):
         st.session_state.mostrar_form = True
     st.markdown('<p class="synthetic-list">Baches, veredas, luminarias, seguridad, higiene, arbolado y tránsito.</p>', unsafe_allow_html=True)
@@ -132,7 +139,6 @@ if st.session_state.mostrar_form:
         if st.button("Buscar en mapa", use_container_width=True):
             if dir_buscar:
                 try:
-                    # Nominatim API con User-Agent seguro
                     query = f"{dir_buscar}, San Isidro, Buenos Aires, Argentina"
                     url_nom = f"https://nominatim.openstreetmap.org/search?format=json&q={requests.utils.quote(query)}"
                     headers = {"User-Agent": "ReSI-App/1.1 (contacto@rescatemossanisidro.com.ar)"}
@@ -149,7 +155,6 @@ if st.session_state.mostrar_form:
 
     m_sel = folium.Map(location=[st.session_state.lat_sel, st.session_state.lon_sel], zoom_start=16)
     
-    # Nuevo icono de selección (El círculo con la R)
     icon_sel_html = '<div style="background-color:#dc3545; color:white; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-weight:bold; border:2px solid white; box-shadow: 0px 4px 6px rgba(0,0,0,0.4); margin-top:-16px; margin-left:-16px;">R</div>'
     
     folium.Marker(
@@ -190,7 +195,9 @@ if st.session_state.mostrar_form:
                         "lat": lat_s, "lon": lon_s, "estado": "Pendiente"
                     }
                     supabase.table("reportes").insert(nuevo_reporte).execute()
-                    st.success("✅ ¡Reporte enviado!")
+                    
+                    # ASIGNACIÓN DEL TEXTO DE ÉXITO SOLICITADO
+                    st.session_state.mensaje_exito = "Tu reporte fue cargado con éxito, gracias por sumar tu aporte para rescatar San Isidro"
                     st.session_state.mostrar_form = False
                     st.rerun()
                 except: st.error("Error al enviar.")
